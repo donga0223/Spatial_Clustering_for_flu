@@ -16,6 +16,9 @@ import preprocess_and_plot
 import forecast_model
 from timeseriesutils import featurize
 
+# RAC 
+TX_RAC = pd.read_csv('data/tx_rac.csv')
+TX_dshs = pd.read_csv('data/tx_dshs_region.csv')
 
 # ==============================================================================
 # Core function: run forecast for a single (k, forecast_date, method_name)
@@ -30,7 +33,7 @@ def run_single_forecast(k, forecast_date, method_name):
     # ---------------------------
     # DATA LOAD
     # ---------------------------
-    input_file = f"data/df_{method_name}_{k}.csv"
+    input_file = f"data/cluster_data/df_county_{method_name}_{k}.csv"
     if not os.path.exists(input_file):
         print(f"[SKIP] File not found: {input_file}", flush=True)
         return
@@ -43,9 +46,9 @@ def run_single_forecast(k, forecast_date, method_name):
         dat=dat,
         group_cols=["cluster"],
         date_col="target_end_date",
-        flu_col="hsa_value_flu",
-        all_col="hsa_value_all",
-        pop_col="hsa_population",
+        flu_col="value_flu",
+        all_col="value_all",
+        pop_col="population",
         loader=loader
     )
     df_cluster["geo_level"] = "cluster"
@@ -56,27 +59,67 @@ def run_single_forecast(k, forecast_date, method_name):
         dat=dat,
         group_cols=["state"],
         date_col="target_end_date",
-        flu_col="hsa_value_flu",
-        all_col="hsa_value_all",
-        pop_col="hsa_population",
+        flu_col="value_flu",
+        all_col="value_all",
+        pop_col="population",
         loader=loader
     )
     df_state["geo_level"] = "state"
 
-    # hsa level
+    # County level
+    df_county = preprocess_and_plot.cal_inc_by_group(
+        dat=dat,
+        group_cols=["county"],
+        date_col="target_end_date",
+        flu_col="value_flu",
+        all_col="value_all",
+        pop_col="population",
+        loader=loader
+    )
+    df_county["geo_level"] = "county"
+
+    # RAC level
+    dat2 = dat.merge(TX_RAC, left_on="county", right_on="County", how="left")
+    df_rac = preprocess_and_plot.cal_inc_by_group(
+        dat=dat2,
+        group_cols=["RAC"],
+        date_col="target_end_date",
+        flu_col="value_flu",
+        all_col="value_all",
+        pop_col="population",
+        loader=loader
+    )
+    df_rac["geo_level"] = "rac"
+
+    #dshs level
+    dat3 = dat.merge(TX_dshs, left_on="county", right_on="County", how="left")
+    df_dshs = preprocess_and_plot.cal_inc_by_group(
+        dat=dat3,
+        group_cols=["DSHS_Region"],
+        date_col="target_end_date",
+        flu_col="value_flu",
+        all_col="value_all",
+        pop_col="population",
+        loader=loader
+    )
+    df_rac["geo_level"] = "dshs"
+
+    #HSA level
     df_hsa = preprocess_and_plot.cal_inc_by_group(
         dat=dat,
         group_cols=["hsa_nci_id"],
         date_col="target_end_date",
-        flu_col="hsa_value_flu",
-        all_col="hsa_value_all",
-        pop_col="hsa_population",
+        flu_col="value_flu",
+        all_col="value_all",
+        pop_col="population",
         loader=loader
     )
-    df_hsa["geo_level"] = "hsa"
+    df_rac["geo_level"] = "hsa"
 
-    df_final = pd.concat([df_cluster, df_hsa, df_state], axis=0)
 
+
+    df_final = pd.concat([df_cluster, df_county, df_hsa, df_rac, df_dshs, df_state], axis=0)
+    
     # ---------------------------
     # FORECAST
     # ---------------------------
@@ -85,11 +128,10 @@ def run_single_forecast(k, forecast_date, method_name):
     )
     print(f"  [k={k}] Reference date = {ref_date}", flush=True)
 
-
     df_shifted = preprocess_and_plot.shift_future_seasons(df_final, ref_date)
     transform_df = preprocess_and_plot.transform_incidence(df_shifted)
 
-    
+
     df, feat_names = preprocess_and_plot.build_features(
         transform_df,
         featurize,
@@ -114,7 +156,7 @@ def run_single_forecast(k, forecast_date, method_name):
     # SAVE
     # ---------------------------
     root = Path.cwd()
-    output_path = root / "model_output" / f"TX_NSSP_{method_name}_{k}_pct"
+    output_path = root / "model_output" / f"TX_NSSP_county_{method_name}_{k}_pct"
     output_path.mkdir(parents=True, exist_ok=True)
 
     output_file = output_path / f"{ref_date}-GBQR.csv"
@@ -126,8 +168,8 @@ def run_single_forecast(k, forecast_date, method_name):
 # ==============================================================================
 # Parallel runner: run all k values for one forecast_date in parallel
 # ==============================================================================
-def run_all_k_parallel(forecast_date, method_name, 
-                       k_min=2, k_max=20, n_workers=None):
+def run_all_k_parallel(forecast_date, method_name,
+                       k_min=5, k_max=20, n_workers=None):
     """
     Run forecast for all k (k_min to k_max) in parallel using multiprocessing.
     """
@@ -149,12 +191,12 @@ def run_all_k_parallel(forecast_date, method_name,
 # ==============================================================================
 # Entry point
 # ==============================================================================
-if __name__ == '__main__': 
+if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--forecast_date", type=str, required=True)
     parser.add_argument("--method_name",   type=str, required=True,
                         help="skater, clustergeo, or redcap")
-    parser.add_argument("--k_min",         type=int, default=2)
+    parser.add_argument("--k_min",         type=int, default=5)
     parser.add_argument("--k_max",         type=int, default=20)
     parser.add_argument("--n_workers",     type=int, default=None,
                         help="Number of parallel workers. Defaults to number of k values.")
