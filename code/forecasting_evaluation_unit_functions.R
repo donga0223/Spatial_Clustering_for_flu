@@ -836,6 +836,12 @@ make_summary_long <- function(summary_all,
     paste0("WIS_G_vs_", unit_level_name)
   )
   
+  rac_vs_unit_metrics <- c(
+    paste0("coverage_rac_vs_", unit_level_name),
+    paste0("MAE_rac_vs_", unit_level_name),
+    paste0("WIS_rac_vs_", unit_level_name)
+  )
+  
   state_vs_unit_metrics <- c(
     paste0("coverage_state_vs_", unit_level_name),
     paste0("MAE_state_vs_", unit_level_name),
@@ -844,11 +850,12 @@ make_summary_long <- function(summary_all,
   
   metric_cols <- c(
     unit_metrics,
-    "coverage_state", "coverage_G",
+    "coverage_G", "coverage_rac", "coverage_state",
     cluster_vs_unit_metrics,
+    rac_vs_unit_metrics,
     state_vs_unit_metrics,
-    "MAE_state", "MAE_G",
-    "WIS_G", "WIS_state"
+    "MAE_G", "MAE_rac", "MAE_state",
+    "WIS_G", "WIS_rac", "WIS_state"
   )
   
   summary_all %>%
@@ -861,8 +868,10 @@ make_summary_long <- function(summary_all,
       metric_clean = dplyr::case_when(
         metric %in% unit_metrics ~ paste0(unit_label, " vs ", unit_label),
         metric %in% c("coverage_G", "MAE_G", "WIS_G") ~ "Cluster vs Cluster",
+        metric %in% c("coverage_rac", "MAE_rac", "WIS_rac") ~ "RAC vs RAC",
         metric %in% c("coverage_state", "MAE_state", "WIS_state") ~ "State vs State",
         metric %in% cluster_vs_unit_metrics ~ paste0("Cluster forecast vs ", unit_label, " obs"),
+        metric %in% rac_vs_unit_metrics ~ paste0("RAC forecast vs ", unit_label, " obs"),
         metric %in% state_vs_unit_metrics ~ paste0("State forecast vs ", unit_label, " obs"),
         TRUE ~ metric
       ),
@@ -871,8 +880,10 @@ make_summary_long <- function(summary_all,
         levels = c(
           paste0(unit_label, " vs ", unit_label),
           "Cluster vs Cluster",
+          "RAC vs RAC",
           "State vs State",
           paste0("Cluster forecast vs ", unit_label, " obs"),
+          paste0("RAC forecast vs ", unit_label, " obs"),
           paste0("State forecast vs ", unit_label, " obs")
         )
       ),
@@ -956,3 +967,5 @@ plot_summary_method_type <- function(all_summary_long,
   
   return(p)
 }
+
+
