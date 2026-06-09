@@ -153,9 +153,8 @@ def plot_by_location(df):
     
 
 def build_features(df, featurize, ref_date, max_horizon=4):
-    df = df.copy()
     df['wk_end_date'] = pd.to_datetime(df['wk_end_date'])
-    
+    df = df[df['wk_end_date'] < pd.Timestamp(ref_date)]
     df = df.sort_values(['location','wk_end_date']).reset_index(drop=True)
     feat_names = ['inc_4rt_cs', 'season_week', 'log_pop']
 

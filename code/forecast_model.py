@@ -5,35 +5,14 @@ import time
 import warnings
 import loader
 
-def prepare_train_test(df, feat_names, ref_date, forecast_season):
-    df = df.copy()
-    df["wk_end_date"] = pd.to_datetime(df["wk_end_date"])
-    ref_date = pd.to_datetime(ref_date)
+def prepare_train_test(df, feat_names):
+    max_week = df['wk_end_date'].max()
+    df_test = df.loc[df.wk_end_date == df.wk_end_date.max()].copy()
+    x_test = df_test[feat_names]
 
-    # test: forecast season's reference date
-    df_test = df.loc[
-        (df["season"] == forecast_season) &
-        (df["wk_end_date"] == ref_date)
-    ].copy()
-
-    
-    # train: target
-    # 1) use all date from different season
-    # 2) use all date before ref_date in the same season
-    df_train = df.loc[
-        (~df["delta_target"].isna()) &
-        (
-            (df["season"] != forecast_season) |
-            (
-                (df["season"] == forecast_season) &
-                (df["wk_end_date"] < ref_date)
-            )
-        )
-    ].copy()
-
-    x_train = df_train[feat_names].copy()
-    y_train = df_train["delta_target"]
-    x_test = df_test[feat_names].copy()
+    df_train = df.loc[~df['delta_target'].isna().values]
+    x_train = df_train[feat_names]
+    y_train = df_train['delta_target']
 
     for col in ['season_week', 'delta_xmas']:
         x_train[col] = pd.to_numeric(x_train[col], errors='coerce')
@@ -117,10 +96,9 @@ def generate_quantile_forecasts(
     q_labels,
     num_bags,
     bag_frac_samples,
-    ref_date,
-    forecast_season
+    ref_date
 ):
-    df_train, df_test, x_train, x_test, y_train = prepare_train_test(df, feat_names, ref_date, forecast_season)
+    df_train, df_test, x_train, x_test, y_train = prepare_train_test(df, feat_names)
 
     feature_importance_df, test_preds_by_bag = fit_quantile_models(
         x_train, y_train, x_test, df_train, q_levels, num_bags, bag_frac_samples, ref_date
