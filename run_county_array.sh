@@ -18,12 +18,11 @@ conda activate flusion
 
 cd ~/Spatial_clustering
 
-echo "Running METHOD=$METHOD, SEASON=$SEASON, DATE=$DATE, k=5~25 in parallel"
+echo "Running METHOD=$METHOD, DATE=$DATE, k=5~25 in parallel"
 
 python run_county_forecast.py \
   --forecast_date "$DATE" \
   --method_name "$METHOD" \
-  --forecast_season "$SEASON" \
   --k_min 5 \
   --k_max 25 \
   --n_workers 21

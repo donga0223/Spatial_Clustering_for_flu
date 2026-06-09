@@ -1,11 +1,13 @@
 # preprocess_and_plot.py
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import seaborn as sns
 from pathlib import Path
 from datetime import timedelta
 import warnings
+import matplotlib
+matplotlib.use('Agg') 
+import matplotlib.pyplot as plt
 
 import loader
 from timeseriesutils import featurize
@@ -123,6 +125,43 @@ def transform_incidence(df):
     ).groupby(['location'])['inc_4rt_cs_in_season'].transform(lambda x: x.mean())
     df['inc_4rt_cs'] = df['inc_4rt_cs'] - df['inc_4rt_center_factor']
     return df
+
+
+def shift_future_seasons(df, current_ref_date, years_shift=10):
+    # Determine the starting year of the current forecast season
+    current_season_year = current_ref_date.year if current_ref_date.month >= 9 else current_ref_date.year - 1
+    
+    # Select only future seasons (beyond the current forecast season)
+    future_df = df[df['season'].apply(
+        lambda s: int(s.split('/')[0]) > current_season_year
+    )].copy().reset_index(drop=True) 
+    
+    # If no future seasons exist, return original df as-is
+    if future_df.empty:
+        return df
+    
+    # Shift dates back by years_shift years
+    future_df['wk_end_date'] = future_df['wk_end_date'] - pd.DateOffset(years=years_shift)
+    
+    # Recompute date-related columns after shift
+    future_df['year'] = future_df['wk_end_date'].dt.year
+    future_df['epiweek'] = future_df['wk_end_date'].dt.isocalendar().week.astype(int)
+    future_df['season_week'] = loader.convert_epiweek_to_season_week(
+        future_df['year'].to_numpy(),
+        future_df['epiweek'].to_numpy()
+    )
+    future_df = loader.adjust_year_based_on_target_end_date(future_df)
+    
+    # Recompute season label using same logic as preprocess_and_plot.py
+    future_df['season'] = (
+        (future_df['year'] - ((future_df['epiweek'] <= 30) & (future_df['season_week'] >= 1))).astype(str)
+        + "/" +
+        ((future_df['year'] - ((future_df['epiweek'] <= 30) & (future_df['season_week'] >= 1)) + 1).astype(str).str[-2:])
+    )
+    
+    # Append shifted future seasons to original df
+    return pd.concat([df, future_df], axis=0).reset_index(drop=True)
+
 
 def plot_by_location(df):
     locations = df.drop_duplicates('location').sort_values(by='population', ascending=False)['location'].tolist()

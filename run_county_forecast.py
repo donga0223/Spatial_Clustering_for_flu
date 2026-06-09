@@ -22,7 +22,7 @@ TX_RAC = pd.read_csv('data/tx_rac.csv')
 # ==============================================================================
 # Core function: run forecast for a single (k, forecast_date, method_name)
 # ==============================================================================
-def run_single_forecast(k, forecast_date, method_name, forecast_season):
+def run_single_forecast(k, forecast_date, method_name):
     """
     Run forecast for one combination of k, forecast_date, method_name.
     Can be called directly or via multiprocessing.Pool.
@@ -91,8 +91,7 @@ def run_single_forecast(k, forecast_date, method_name, forecast_season):
     df_rac["geo_level"] = "rac"
 
     df_final = pd.concat([df_cluster, df_county, df_rac, df_state], axis=0)
-    transform_df = preprocess_and_plot.transform_incidence(df_final)
-
+    
     # ---------------------------
     # FORECAST
     # ---------------------------
@@ -100,6 +99,10 @@ def run_single_forecast(k, forecast_date, method_name, forecast_season):
         (5 - forecast_date.weekday()) % 7
     )
     print(f"  [k={k}] Reference date = {ref_date}", flush=True)
+
+    df_shifted = preprocess_and_plot.shift_future_seasons(df_final, ref_date)
+    transform_df = preprocess_and_plot.transform_incidence(df_shifted)
+
 
     df, feat_names = preprocess_and_plot.build_features(
         transform_df,
@@ -118,8 +121,7 @@ def run_single_forecast(k, forecast_date, method_name, forecast_season):
         q_labels=q_labels,
         num_bags=100,
         bag_frac_samples=1,
-        ref_date=ref_date,
-        forecast_season=forecast_season
+        ref_date=ref_date
     )
 
     # ---------------------------
@@ -138,7 +140,7 @@ def run_single_forecast(k, forecast_date, method_name, forecast_season):
 # ==============================================================================
 # Parallel runner: run all k values for one forecast_date in parallel
 # ==============================================================================
-def run_all_k_parallel(forecast_date, method_name, forecast_season,
+def run_all_k_parallel(forecast_date, method_name,
                        k_min=5, k_max=25, n_workers=None):
     """
     Run forecast for all k (k_min to k_max) in parallel using multiprocessing.
@@ -147,15 +149,15 @@ def run_all_k_parallel(forecast_date, method_name, forecast_season,
     if n_workers is None:
         n_workers = len(k_list)
 
-    args = [(k, forecast_date, method_name, forecast_season) for k in k_list]
+    args = [(k, forecast_date, method_name) for k in k_list]
 
     print(f"Running k={k_min}~{k_max} in parallel ({n_workers} workers), "
-          f"method={method_name}, date={forecast_date}, season={forecast_season}", flush=True)
+          f"method={method_name}, date={forecast_date}", flush=True)
 
     with multiprocessing.Pool(processes=n_workers) as pool:
         pool.starmap(run_single_forecast, args)
 
-    print(f"[ALL DONE] method={method_name}, date={forecast_date}, season={forecast_season}", flush=True)
+    print(f"[ALL DONE] method={method_name}, date={forecast_date}", flush=True)
 
 
 # ==============================================================================
@@ -166,8 +168,6 @@ if __name__ == '__main__':
     parser.add_argument("--forecast_date", type=str, required=True)
     parser.add_argument("--method_name",   type=str, required=True,
                         help="skater, clustergeo, or redcap")
-    parser.add_argument("--forecast_season",   type=str, required=True,
-                        help="2023/24, 2024/25, or 2025/26")
     parser.add_argument("--k_min",         type=int, default=5)
     parser.add_argument("--k_max",         type=int, default=25)
     parser.add_argument("--n_workers",     type=int, default=None,
@@ -180,7 +180,6 @@ if __name__ == '__main__':
     run_all_k_parallel(
         forecast_date = forecast_date,
         method_name   = args.method_name,
-        forecast_season=args.forecast_season,
         k_min         = args.k_min,
         k_max         = args.k_max,
         n_workers     = args.n_workers

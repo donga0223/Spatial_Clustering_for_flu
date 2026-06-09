@@ -44,7 +44,8 @@ def fit_quantile_models(x_train, y_train, x_test, df_train, q_levels, num_bags, 
                 verbosity=-1,
                 objective='quantile',
                 alpha=q_level,
-                random_state=lgb_seeds[b, q_ind]
+                random_state=lgb_seeds[b, q_ind],
+                n_jobs=1
             )
             model.fit(X=x_train.loc[bag_obs_inds], y=y_train.loc[bag_obs_inds])
             test_preds_by_bag[:, b, q_ind] = model.predict(x_test)
@@ -67,7 +68,7 @@ def postprocess_predictions(df_test, test_preds_by_bag, q_labels, ref_date):
     preds_df = df_test_w_preds[cols_to_keep + q_labels]
 
     preds_df = pd.melt(preds_df, id_vars=cols_to_keep, var_name='quantile', value_name='delta_hat')
-
+    
     preds_df['inc_4rt_cs_target_hat'] = preds_df['inc_4rt_cs'] + preds_df['delta_hat']
     preds_df['inc_4rt_target_hat'] = (
         (preds_df['inc_4rt_cs_target_hat'] + preds_df['inc_4rt_center_factor']) *
