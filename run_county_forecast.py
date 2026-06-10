@@ -32,7 +32,7 @@ def run_single_forecast(k, forecast_date, method_name):
     # ---------------------------
     # DATA LOAD
     # ---------------------------
-    input_file = f"data/df_county_{method_name}_{k}.csv"
+    input_file = f"data/cluster_data/df_county_{method_name}_{k}.csv"
     if not os.path.exists(input_file):
         print(f"[SKIP] File not found: {input_file}", flush=True)
         return
