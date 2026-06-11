@@ -1,20 +1,31 @@
 source("code/forecasting_evaluation_unit_functions.R")
 
-date_list <- seq.Date(
-  from = as.Date("2024-10-05"),
-  to = as.Date("2025-03-01"),
+date_list2324 <- seq.Date(
+  from = as.Date("2023-10-07"),
+  to = as.Date("2024-03-30"),
   by = "week"
 )
 
-date_list <- seq.Date(
-  from = as.Date("2025-10-04"),
-  to = as.Date("2026-02-21"),
+date_list2425 <- seq.Date(
+  from = as.Date("2024-10-05"),
+  to = as.Date("2025-03-30"),
   by = "week"
 )
+
+date_list2526 <- seq.Date(
+  from = as.Date("2025-10-04"),
+  to = as.Date("2026-03-30"),
+  by = "week"
+)
+
+date_list = c(date_list2324, date_list2425, date_list2526)
 
 unit_id_var <- "county"
 unit_level_name <- "county"
 unit_label <- "County"
+
+tx_dshs <- read.csv("data/tx_dshs_region.csv")
+tx_hsa <- read.csv("data/tx_hsa.csv")
 
 # RAC 매핑 로드 (county level 분석에 필요)
 rac_map <- read.csv("data/tx_rac.csv") %>%
@@ -23,83 +34,54 @@ rac_map <- read.csv("data/tx_rac.csv") %>%
   dplyr::mutate(
     RAC    = as.character(RAC),
     county = as.character(county)
-  )
-
-res_skater_k5 <- run_cluster_eval(
-  date_list = date_list,
-  n_cluster = 5,
-  method_name = "county_skater",
-  unit_id_var = unit_id_var,
-  unit_level_name = unit_level_name,
-  unit_label = unit_label,
-  rac_map = rac_map
-)
-
-res_skater_k5$summary_metrics
-res_skater_k5$plots$h1
+  ) %>%
+  left_join(tx_dshs, by = c("county" = "County")) %>%
+  left_join(tx_hsa, by = "county")
 
 
-res_county_skater_list_2526 <- list()
-
-for (k in 5:25) {
-  print(k)
-  res_county_skater_list_2526[[paste0("k", k)]] <- run_cluster_eval(
+if(2==3){
+  res_clustergeo_5 <- run_cluster_eval(
     date_list = date_list,
-    n_cluster = k,
-    method_name = "county_skater",
-    unit_id_var = unit_id_var,
-    unit_level_name = unit_level_name,
-    unit_label = unit_label,
+    n_cluster = 5,
+    method_name = "county_clustergeo",
+    unit_id_var = "county",
+    unit_level_name = "county",
+    unit_label = "County",
     rac_map = rac_map,
-    make_plots = FALSE
+    agg_levels = c("G", "rac", "dshs_region", "hsa", "state"),
+    make_plots = TRUE
   )
+  
+  res_skater_k5$summary_metrics
+  res_skater_k5$plots$h1
+  
 }
 
 
-res_county_clustergeo_list_2526 <- list()
+
+
+
+res_county_clustergeo_list <- list()
 
 for (k in 5:25) {
   print(k)
-  res_county_clustergeo_list_2526[[paste0("k", k)]] <- run_cluster_eval(
+  res_county_clustergeo_list[[paste0("k", k)]] <- run_cluster_eval(
     date_list = date_list,
     n_cluster = k,
     method_name = "county_clustergeo",
-    unit_id_var = unit_id_var,
-    unit_level_name = unit_level_name,
-    unit_label = unit_label,
+    unit_id_var = "county",
+    unit_level_name = "county",
+    unit_label = "County",
     rac_map = rac_map,
-    make_plots = FALSE
+    agg_levels = c("G", "rac", "dshs_region", "hsa", "state"),
+    make_plots = TRUE
   )
 }
 
-
-res_county_redcap_list_2526 <- list()
-
-for (k in 5:25) {
-  print(k)
-  res_county_redcap_list_2526[[paste0("k", k)]] <- run_cluster_eval(
-    date_list = date_list,
-    n_cluster = k,
-    method_name = "county_redcap",
-    unit_id_var = unit_id_var,
-    unit_level_name = unit_level_name,
-    unit_label = unit_label,
-    rac_map = rac_map,
-    make_plots = FALSE
-  )
-}
-
-save(res_county_skater_list_2526, 
-     res_county_clustergeo_list_2526, 
-     res_county_redcap_list_2526, file = "wis_county_2526_all.RData")
+save(res_county_clustergeo_list, 
+     file = "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results/summary_county_clustergeo.RData")
 
 
-
-summary_county_skater_all <- purrr::map_dfr(
-  res_county_skater_list,
-  "summary_metrics",
-  .id = "result_id"
-)
 
 summary_county_clustergeo_all <- purrr::map_dfr(
   res_county_clustergeo_list,
@@ -107,47 +89,18 @@ summary_county_clustergeo_all <- purrr::map_dfr(
   .id = "result_id"
 )
 
-summary_county_redcap_all <- purrr::map_dfr(
-  res_county_redcap_list,
-  "summary_metrics",
-  .id = "result_id"
-)
-
-
-
-summary_county_skater_long2 <- make_summary_long(
-  summary_county_skater_all,
-  unit_level_name = unit_level_name,
-  unit_label = unit_label
-)
 
 summary_county_clustergeo_long2 <- make_summary_long(
   summary_county_clustergeo_all,
-  unit_level_name = unit_level_name,
-  unit_label = unit_label
+  unit_level_name = "county",
+  unit_label = "County",
+  agg_levels = c("G", "rac", "dshs_region", "hsa", "state")
 )
-
-summary_county_redcap_long2 <- make_summary_long(
-  summary_county_redcap_all,
-  unit_level_name = unit_level_name,
-  unit_label = unit_label
-)
-
-
 
 all_county_summary_long <- dplyr::bind_rows(
-  summary_county_skater_long2,
-  summary_county_clustergeo_long2,
-  summary_county_redcap_long2,
-  #summary_clustergeo0_long2
+  summary_county_clustergeo_long2
 )
 
-p_county_skater_summary <- plot_summary_metrics(
-  summary_county_skater_all,
-  method_name = "county_skater",
-  unit_level_name = unit_level_name,
-  unit_label = unit_label
-)
 
 p_county_clustergeo_summary <- plot_summary_metrics(
   summary_county_clustergeo_all,
@@ -156,12 +109,7 @@ p_county_clustergeo_summary <- plot_summary_metrics(
   unit_label = unit_label
 )
 
-p_county_redcap_summary <- plot_summary_metrics(
-  summary_county_redcap_all,
-  method_name = "county_redcap",
-  unit_level_name = unit_level_name,
-  unit_label = unit_label
-)
+
 
 
 p_county_coverage_compare <- plot_summary_method_type(
@@ -182,9 +130,9 @@ p_county_wis_compare <- plot_summary_method_type(
 
 pdf("figures/county_forecasting_summary.pdf", width = 12, height = 8)
 
-print(p_county_skater_summary)
+
 print(p_county_clustergeo_summary)
-print(p_county_redcap_summary)
+#print(p_county_redcap_summary)
 print(p_county_coverage_compare)
 print(p_county_mae_compare)
 print(p_county_wis_compare)
