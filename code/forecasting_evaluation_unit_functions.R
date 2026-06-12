@@ -253,7 +253,7 @@ make_level_df <- function(df_all,
 
 df_obs_est_wide <- function(df_all,
                             geo_wide_mapping,
-                            unit_level_name = "hsa") {
+                            unit_level_name = "county") {
   
   vars_to_keep <- c("inc", "est_low", "est_median", "est_high")
   
@@ -608,6 +608,7 @@ add_eval_metrics <- function(df_all_wide,
 }
 
 add_spatial_variation_metric <- function(df_all_wide,
+                                         summary_metrics,
                                          unit_level_name = "county",
                                          agg_levels = c("G", "rac", "dshs_region", "hsa"),
                                          state_level = "state") {
@@ -877,6 +878,16 @@ run_cluster_eval <- function(date_list,
   spatial_agg_levels <- agg_levels
   spatial_agg_levels[spatial_agg_levels == "cluster"] <- "G"
   
+  
+  summary_metrics <- summarize_metrics(
+    df_all_wide2 = df_all_wide2,
+    method_name = method_name,
+    n_cluster = n_cluster,
+    unit_level_name = unit_level_name,
+    agg_levels = agg_levels
+  ) %>%
+    left_join(spatial_var_summary, by = "horizon")
+  
   spatial_var_metrics <- add_spatial_variation_metric(
     df_all_wide = df_all_wide2,
     unit_level_name = unit_level_name,
@@ -895,15 +906,6 @@ run_cluster_eval <- function(date_list,
       names_from = metric_name,
       values_from = spatial_variation_preserved
     )
-  
-  summary_metrics <- summarize_metrics(
-    df_all_wide2 = df_all_wide2,
-    method_name = method_name,
-    n_cluster = n_cluster,
-    unit_level_name = unit_level_name,
-    agg_levels = agg_levels
-  ) %>%
-    left_join(spatial_var_summary, by = "horizon")
   
   
   plot_list <- NULL
