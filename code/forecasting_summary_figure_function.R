@@ -1,5 +1,9 @@
 library(dplyr)
 library(ggplot2)
+library(tidyr)
+library(scales)
+
+
 
 make_summary_long <- function(summary_all,
                               unit_level_name = "hsa",
@@ -278,4 +282,110 @@ plot_spatial_variation_vs_state <- function(spatial_var,
       color = "Comparison",
       title = paste("Spatial variation preserved vs State - Method:", method_name)
     )
+}
+
+
+plot_tradeoff_matrix_facet_fixed <- function(tradeoff_df, horizon_select = c(1, 2, 3, 4)) {
+  
+  # 1. 원하는 주차(Horizon) 데이터 필터링
+  raw_filtered <- tradeoff_df %>%
+    filter(horizon %in% horizon_select)
+  
+  unique_ks <- unique(raw_filtered$n_cluster)
+  unique_horizons <- unique(raw_filtered$horizon)
+  
+  # 2. Long format 변환 (★ 버그 수정: | 대신 c()를 사용하여 모든 R 버전 호환 완료)
+  plot_df <- raw_filtered %>%
+    pivot_longer(
+      cols = c(starts_with("WIS_"), starts_with("SpatialVar_")),
+      names_to = "metric_raw",
+      values_to = "value"
+    ) %>%
+    mutate(
+      type = if_else(grepl("^WIS_", metric_raw), "WIS", "SpatialVar"),
+      geo_level = sub("^(WIS_|SpatialVar_)", "", metric_raw)
+    )
+  
+  # 3. SpatialVar 에 없는 State(0)와 County(1) 기준 데이터 강제 주입
+  baseline_spatial <- expand.grid(
+    n_cluster = unique_ks,
+    horizon = unique_horizons,
+    geo_level = c("state", "county"),
+    type = "SpatialVar",
+    stringsAsFactors = FALSE
+  ) %>%
+    as_tibble() %>%
+    mutate(
+      value = if_else(geo_level == "state", 0, 1),
+      # ★ 형식을 plot_df와 완벽히 맞추기 위해 metric_raw 컬럼을 강제로 만들어 줍니다.
+      metric_raw = paste0("SpatialVar_", geo_level) 
+    )
+  
+  # 4. 데이터 최종 결합 및 요인(Factor) 순서 고정
+  plot_df_final <- plot_df %>%
+    bind_rows(baseline_spatial) %>%
+    mutate(
+      # 지리 레벨 라벨 정렬 및 이름 매핑 (County -> HSA -> Cluster -> RAC -> DSHS -> State 순서)
+      geo_label = case_when(
+        geo_level == "county"      ~ "County",
+        geo_level == "hsa"         ~ "HSA",
+        geo_level == "rac"         ~ "RAC",
+        geo_level == "G"           ~ "Cluster (G)",
+        geo_level == "dshs_region" ~ "DSHS Region",
+        geo_level == "state"       ~ "State",
+        TRUE ~ geo_level
+      ),
+      geo_label = factor(geo_label, levels = c("County", "HSA", "RAC", "Cluster (G)", "DSHS Region", "State")),
+      
+      # 가로축 패싯 네임 설정
+      facet_metric = case_when(
+        type == "WIS" ~ "Forecasting Performance (WIS)",
+        type == "SpatialVar" ~ "Spatial Variation Preserved (0 to 1)",
+        TRUE ~ type
+      ),
+      facet_metric = factor(facet_metric, levels = c("Forecasting Performance (WIS)", "Spatial Variation Preserved (0 to 1)")),
+      
+      # 세로축 패싯 네임 설정
+      facet_horizon = factor(paste0("Horizon ", horizon), levels = paste0("Horizon ", sort(horizon_select)))
+    ) %>%
+    filter(!is.na(value), !is.na(geo_label))
+  
+  # 5. GGPLOT 패싯 격자 그리기
+  p <- ggplot(plot_df_final, aes(x = n_cluster, y = value, color = geo_label, group = geo_label)) +
+    geom_line(size = 1.1, alpha = 0.8) +
+    geom_point(size = 2.0) + 
+    
+    # 가로는 메트릭(WIS vs SpatialVar), 세로는 주차(Horizon 1~4)
+    facet_grid(facet_metric ~ facet_horizon, scales = "free_y") +
+    
+    # 지정해주신 순서에 맞는 색상 지정
+    scale_color_manual(
+      name = "Geographic Level",
+      values = c(
+        "County"      = "#66a61e",  # 연두
+        "HSA"         = "#e7298a",  # 핑크
+        "Cluster (G)" = "#7570b3",  # 보라
+        "RAC"         = "#1b9e77",  # 초록
+        "DSHS Region" = "#d95f02",  # 주황
+        "State"       = "#e6ab02"   # 노랑
+      ),
+      drop = FALSE
+    ) +
+    
+    theme_bw(base_size = 12) +
+    theme(
+      legend.position = "right",
+      panel.grid.minor = element_blank(),
+      strip.background = element_rect(fill = "#f7f7f7", color = "#cccccc"),
+      strip.text = element_text(face = "bold", size = 11),
+      plot.title = element_text(face = "bold", hjust = 0.5, size = 13),
+      axis.title.x = element_text(margin = margin(t = 10))
+    ) +
+    labs(
+      title = "Multi-Horizon Trade-off Matrix (Facet Grid)",
+      x = "Number of Clusters (K)",
+      y = "Value"
+    )
+  
+  return(p)
 }
