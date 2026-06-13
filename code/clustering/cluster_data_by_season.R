@@ -25,7 +25,7 @@ sf_county2 <- sf_county %>%
 # Extract unique seasons to iterate over as "Test Seasons"
 unique_seasons <- unique(df_long$season)
 #unique_seasons <- c("2022/23", "2023/24", "2024/25", "2025/26")
-method_name <- "redcap"
+method_name <- "clustergeo"
 
 # =========================================================================
 # [STEP 1] Outer Loop: Setting the Target 'Test' Season
@@ -130,7 +130,10 @@ for (sea in unique_seasons) {
       dplyr::left_join(
         cluster_output$cluster_mapping,
         by = "county"
-      ) 
+      ) %>% 
+      dplyr::mutate(
+        target_end_date = as.Date(Date) + 6
+      )
     
     # Save the mapped dataset. 
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
@@ -142,7 +145,7 @@ for (sea in unique_seasons) {
     
     # Export the combined diagnostic map
     png_file <- paste0(
-      "figures/cluster_combine/county_",
+      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/figures/cluster_combine/county_",
       method_name,
       "_exclude_",
       sea_safe,

@@ -12,6 +12,23 @@ import matplotlib.pyplot as plt
 import loader
 from timeseriesutils import featurize
 
+from datetime import datetime, date
+
+def get_season_string(date_obj):
+    """
+    Determines the influenza season string for a given date object or string.
+    """
+    if isinstance(date_obj, str):
+        date_obj = datetime.strptime(date_obj, "%Y-%m-%d").date()
+        
+    year = date_obj.year
+    month = date_obj.month
+    
+    if month >= 8:
+        return f"{year}-{str(year + 1)[2:]}"
+    else:
+        return f"{year - 1}-{str(year)[2:]}"
+
 def cal_inc_by_group(
     dat,
     group_cols,
