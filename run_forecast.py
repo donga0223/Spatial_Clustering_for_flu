@@ -172,7 +172,7 @@ def run_single_forecast(k, forecast_date, method_name):
 # Parallel runner: run all k values for one forecast_date in parallel
 # ==============================================================================
 def run_all_k_parallel(forecast_date, method_name,
-                       k_min=5, k_max=20, n_workers=None):
+                       k_min=5, k_max=25, n_workers=None):
     """
     Run forecast for all k (k_min to k_max) in parallel using multiprocessing.
     """

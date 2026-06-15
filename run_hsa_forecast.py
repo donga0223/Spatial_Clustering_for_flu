@@ -27,10 +27,13 @@ def run_single_forecast(k, forecast_date, method_name):
     """
     print(f"[START] method={method_name}, k={k}, forecast_date={forecast_date}", flush=True)
 
+    target_season = preprocess_and_plot.get_season_string(forecast_date)
+    print(f"  [k={k}] Target Forecast Date belongs to Season: {target_season}", flush=True)
+    
     # ---------------------------
     # DATA LOAD
     # ---------------------------
-    input_file = f"data/df_{method_name}_{k}.csv"
+    input_file = f"data/cluster_data_season/df_hsa_{method_name}_exclude_{target_season}_{k}.csv"
     if not os.path.exists(input_file):
         print(f"[SKIP] File not found: {input_file}", flush=True)
         return
@@ -113,8 +116,8 @@ def run_single_forecast(k, forecast_date, method_name):
     # ---------------------------
     # SAVE
     # ---------------------------
-    root = Path.cwd()
-    output_path = root / "model_output" / f"TX_NSSP_{method_name}_{k}_pct"
+    root = Path("/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output")
+    output_path = root / "season" / f"TX_NSSP_hsa_{method_name}_{target_season}_{k}_pct"
     output_path.mkdir(parents=True, exist_ok=True)
 
     output_file = output_path / f"{ref_date}-GBQR.csv"
@@ -127,7 +130,7 @@ def run_single_forecast(k, forecast_date, method_name):
 # Parallel runner: run all k values for one forecast_date in parallel
 # ==============================================================================
 def run_all_k_parallel(forecast_date, method_name, 
-                       k_min=2, k_max=20, n_workers=None):
+                       k_min=2, k_max=22, n_workers=None):
     """
     Run forecast for all k (k_min to k_max) in parallel using multiprocessing.
     """
