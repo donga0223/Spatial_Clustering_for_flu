@@ -3,7 +3,14 @@ library(ggplot2)
 library(tidyr)
 library(scales)
 
-
+geo_colors <- c(
+  "County"      = "#66a61e",
+  "HSA"         = "#e7298a",
+  "Cluster"     = "#7570b3",
+  "RAC"         = "#1b9e77",
+  "DSHS Region" = "#d95f02",
+  "State"       = "#e6ab02"
+)
 
 make_summary_long <- function(summary_all,
                               unit_level_name = "hsa",
@@ -71,14 +78,26 @@ make_summary_long <- function(summary_all,
       metric_type = factor(
         metric_type,
         levels = c("Coverage", "MAE", "WIS", "Spatial variation")
+      ),
+      color_group = dplyr::case_when(
+        level == "county" ~ "County",
+        level == "hsa" ~ "HSA",
+        level == "G" ~ "Cluster",
+        level == "rac" ~ "RAC",
+        level == "dshs_region" ~ "DSHS Region",
+        level == "state" ~ "State"
+      ),
+      color_group = factor(
+        color_group,
+        levels = c("County", "HSA", "Cluster", "RAC", "DSHS Region", "State")
       )
     )
 }
 
 plot_summary_metrics <- function(summary_all,
                                  method_name = NULL,
-                                 unit_level_name = "hsa",
-                                 unit_label = "HSA",
+                                 unit_level_name = "county",
+                                 unit_label = "County",
                                  agg_levels = c("G", "rac", "dshs_region", "hsa", "state")) {
   
   summary_long2 <- make_summary_long(
@@ -93,7 +112,7 @@ plot_summary_metrics <- function(summary_all,
     ggplot2::aes(
       x = n_cluster,
       y = value,
-      color = metric_clean,
+      color = color_group,
       group = metric_clean
     )
   ) +
@@ -109,7 +128,8 @@ plot_summary_metrics <- function(summary_all,
       y = "Value",
       color = "Comparison",
       title = paste("Method:", method_name)
-    )
+    ) +
+    scale_color_manual(values = geo_colors)
   
   return(p)
 }
@@ -153,7 +173,7 @@ plot_summary_metrics_same_level <- function(summary_all,
     ggplot2::aes(
       x = n_cluster,
       y = value,
-      color = metric_clean,
+      color = color_group,
       group = metric_clean
     )
   ) +
@@ -169,7 +189,8 @@ plot_summary_metrics_same_level <- function(summary_all,
       y = "Value",
       color = "Comparison",
       title = paste("Same-level evaluation - Method:", method_name)
-    )
+    ) +
+    scale_color_manual(values = geo_colors)
 }
 
 plot_summary_metrics_vs_unit <- function(summary_all,
@@ -213,7 +234,7 @@ plot_summary_metrics_vs_unit <- function(summary_all,
     ggplot2::aes(
       x = n_cluster,
       y = value,
-      color = metric_clean,
+      color = color_group,
       group = metric_clean
     )
   ) +
@@ -229,7 +250,8 @@ plot_summary_metrics_vs_unit <- function(summary_all,
       y = "Value",
       color = "Comparison",
       title = paste("Evaluation against", unit_label, "observations - Method:", method_name)
-    )
+    ) +
+    scale_color_manual(values = geo_colors)
 }
 
 plot_spatial_variation_vs_state <- function(spatial_var,
@@ -244,7 +266,6 @@ plot_spatial_variation_vs_state <- function(spatial_var,
   
   spatial_long <- spatial_var |>
     dplyr::mutate(
-      n_cluster = as.numeric(stringr::str_remove(result_id, "k")),
       metric_clean = dplyr::case_when(
         geo_level == "hsa" ~ "County vs HSA",
         geo_level == "G" ~ "County vs Cluster",
@@ -252,36 +273,48 @@ plot_spatial_variation_vs_state <- function(spatial_var,
         geo_level == "dshs_region" ~ "County vs DSHS Region",
         TRUE ~ geo_level
       ),
+      color_group = dplyr::case_when(
+        geo_level == "hsa" ~ "HSA",
+        geo_level == "G" ~ "Cluster",
+        geo_level == "rac" ~ "RAC",
+        geo_level == "dshs_region" ~ "DSHS Region",
+        TRUE ~ geo_level
+      ),
+      color_group = factor(
+        color_group,
+        levels = c("County", "HSA", "Cluster", "RAC", "DSHS Region", "State")
+      ),
       metric_clean = factor(metric_clean, levels = level_order)
     )
   
-  spatial_summary <- spatial_long %>%
-    group_by(n_cluster, metric_clean, horizon) %>%
-    summarise(mean_preserved = mean(spatial_variation_preserved, na.rm = TRUE))
+  spatial_summary <- spatial_long |>
+    dplyr::group_by(n_cluster, metric_clean, color_group, horizon) |>
+    dplyr::summarise(
+      mean_preserved = mean(spatial_variation_preserved, na.rm = TRUE),
+      .groups = "drop"
+    )
   
   ggplot2::ggplot(
     spatial_summary,
     ggplot2::aes(
       x = n_cluster,
       y = mean_preserved,
-      color = metric_clean,
+      color = color_group,
       group = metric_clean
     )
   ) +
     ggplot2::geom_point() +
     ggplot2::geom_line() +
-    ggplot2::ylim(0,NA) +
-    ggplot2::facet_wrap(
-      ~ horizon,
-      scales = "free_y"
-    ) +
+    ggplot2::ylim(0, NA) +
+    ggplot2::facet_wrap(~ horizon, scales = "free_y") +
     ggplot2::theme_bw() +
     ggplot2::labs(
       x = "Number of clusters",
       y = "Spatial variation preserved",
       color = "Comparison",
       title = paste("Spatial variation preserved vs State - Method:", method_name)
-    )
+    ) +
+    ggplot2::scale_color_manual(values = geo_colors)
 }
 
 
@@ -389,3 +422,181 @@ plot_tradeoff_matrix_facet_fixed <- function(tradeoff_df, horizon_select = c(1, 
   
   return(p)
 }
+
+
+add_result_info <- function(df) {
+  df %>%
+    dplyr::mutate(
+      n_cluster = as.numeric(stringr::str_extract(result_id, "(?<=k)\\d+")),
+      season = stringr::str_extract(result_id, "\\d{4}$")
+    )
+}
+
+summary_figure <- function(df_all_wide,
+                           spatial_var_long,
+                           method_name,
+                           unit_level_name = "county",
+                           unit_label = "County",
+                           agg_levels = c("G", "rac", "dshs_region", "hsa", "state"),
+                           season_select = c("overall", "2324", "2425", "2526")) {
+  
+  season_select <- match.arg(season_select)
+  
+  df_all_wide2 <- add_result_info(df_all_wide)
+  spatial_var_long2 <- add_result_info(spatial_var_long)
+  
+  metric_cols <- names(df_all_wide2)[
+    grepl("^(coverage|MAE|WIS)_", names(df_all_wide2))
+  ]
+  
+  if (season_select == "overall") {
+    
+    df_summary <- df_all_wide2 %>%
+      dplyr::group_by(n_cluster, horizon) %>%
+      dplyr::summarise(
+        dplyr::across(
+          dplyr::all_of(metric_cols),
+          ~ mean(.x, na.rm = TRUE)
+        ),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(method_name = method_name)
+    
+    spatial_plot_data <- spatial_var_long2 %>%
+      dplyr::group_by(n_cluster, geo_level, horizon) %>%
+      dplyr::summarise(
+        spatial_variation_preserved = mean(spatial_variation_preserved, na.rm = TRUE),
+        .groups = "drop"
+      )
+    
+  } else {
+    
+    df_summary <- df_all_wide2 %>%
+      dplyr::filter(season == season_select) %>%
+      dplyr::group_by(n_cluster, horizon) %>%
+      dplyr::summarise(
+        dplyr::across(
+          dplyr::all_of(metric_cols),
+          ~ mean(.x, na.rm = TRUE)
+        ),
+        .groups = "drop"
+      ) %>%
+      dplyr::mutate(
+        method_name = method_name,
+        season = season_select
+      )
+    
+    spatial_plot_data <- spatial_var_long2 %>%
+      dplyr::filter(season == season_select)
+  }
+  
+  p1 <- plot_summary_metrics_same_level(
+    summary_all = df_summary,
+    method_name = paste(method_name, season_select),
+    unit_level_name = unit_level_name,
+    unit_label = unit_label,
+    agg_levels = agg_levels
+  )
+  
+  p2 <- plot_summary_metrics_vs_unit(
+    summary_all = df_summary,
+    method_name = paste(method_name, season_select),
+    unit_level_name = unit_level_name,
+    unit_label = unit_label,
+    agg_levels = agg_levels
+  )
+  
+  p_spatial <- plot_spatial_variation_vs_state(
+    spatial_var = spatial_plot_data,
+    method_name = paste(method_name, season_select)
+  )
+  
+  county_wis <- df_summary %>%
+    dplyr::select(
+      n_cluster, horizon,
+      dplyr::any_of(c(
+        "WIS_county", "WIS_hsa", "WIS_G",
+        "WIS_rac", "WIS_dshs_region", "WIS_state"
+      ))
+    )
+  
+  county_spatial <- spatial_plot_data %>%
+    dplyr::group_by(n_cluster, geo_level, horizon) %>%
+    dplyr::summarise(
+      mean_spatial_var = mean(spatial_variation_preserved, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    tidyr::pivot_wider(
+      names_from = geo_level,
+      values_from = mean_spatial_var,
+      names_prefix = "SpatialVar_"
+    )
+  
+  table_county_tradeoff <- county_wis %>%
+    dplyr::left_join(
+      county_spatial,
+      by = c("n_cluster", "horizon")
+    ) %>%
+    dplyr::arrange(n_cluster, horizon)
+  
+  p_all <- plot_tradeoff_matrix_facet_fixed(
+    table_county_tradeoff,
+    horizon_select = c(1, 2, 3, 4)
+  )
+  
+  return(list(
+    df_summary = df_summary,
+    spatial_plot_data = spatial_plot_data,
+    table_county_tradeoff = table_county_tradeoff,
+    p1 = p1,
+    p2 = p2,
+    p_spatial = p_spatial,
+    p_all = p_all
+  ))
+}
+
+
+summarize_metrics <- function(df_all_wide2,
+                              method_name,
+                              unit_level_name = "county",
+                              agg_levels = c("G", "rac", "dshs_region", "hsa", "state")) {
+  
+  unit_metric_cols <- c(
+    paste0("coverage_", unit_level_name),
+    paste0("MAE_", unit_level_name),
+    paste0("WIS_", unit_level_name)
+  )
+  
+  for (lev in agg_levels) {
+    if (lev == unit_level_name) next
+    
+    unit_metric_cols <- c(
+      unit_metric_cols,
+      paste0("coverage_", lev, "_vs_", unit_level_name),
+      paste0("MAE_", lev, "_vs_", unit_level_name),
+      paste0("WIS_", lev, "_vs_", unit_level_name),
+      paste0("coverage_", lev),
+      paste0("MAE_", lev),
+      paste0("WIS_", lev)
+    )
+  }
+  
+  unit_metric_cols <- intersect(unit_metric_cols, names(df_all_wide2))
+  
+  summary_all <- df_all_wide2 %>%
+    mutate(
+      n_cluster = as.numeric(stringr::str_extract(result_id, "(?<=k)\\d+")),
+      season = stringr::str_extract(result_id, "\\d{4}$")
+    ) %>%
+    group_by(season, n_cluster, horizon) %>%
+    summarise(
+      across(all_of(unit_metric_cols), ~ mean(.x, na.rm = TRUE)),
+      .groups = "drop"
+    ) %>%
+    mutate(
+      method_name = method_name
+    )
+  
+  summary_all
+}
+
