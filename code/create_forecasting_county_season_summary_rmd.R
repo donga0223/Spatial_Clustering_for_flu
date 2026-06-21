@@ -68,7 +68,7 @@ date_list_2526 <- seq.Date(
 
 
 methods <- c("county_clustergeo", "county_skater", "county_redcap")
-seasons <- c("2023-24", "2024-25", "2025-26")
+seasons <- c("2024-25", "2025-26")
 
 for (season in seasons) {
   

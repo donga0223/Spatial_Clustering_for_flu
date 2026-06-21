@@ -23,8 +23,8 @@ sf_county2 <- sf_county %>%
   rename(county = NAME)
 
 # Extract unique seasons to iterate over as "Test Seasons"
-unique_seasons <- unique(df_long$season)
-#unique_seasons <- c("2022/23", "2023/24", "2024/25", "2025/26")
+#unique_seasons <- unique(df_long$season)
+unique_seasons <- c("2023/24", "2024/25", "2025/26")
 method_name <- "clustergeo"
 
 # =========================================================================
@@ -45,7 +45,7 @@ for (sea in unique_seasons) {
   # This restricts the training data strictly to the peak influenza period (October to May).
   df_train_in_season <- df_train_seasons %>%
     mutate(Date_parsed = as.Date(Date)) %>%
-    filter(month(Date_parsed) %in% c(10, 11, 12, 1, 2, 3, 4, 5))
+    filter(month(Date_parsed) %in% c(10, 11, 12, 1, 2, 3))
   
   # Compute Principal Component scores based on the combined historical training seasons
   scoring_matrix <- get_pc_scores(
@@ -135,11 +135,34 @@ for (sea in unique_seasons) {
         target_end_date = as.Date(Date) + 6
       )
     
+    p_map <- plot_cluster_map(
+      hsa_sf2 = cluster_output$df_sf, 
+      cluster_col = "cluster", 
+      algo_name = method_name, 
+      hsa_sf = sf_hsa, 
+      sf_county = sf_county2,
+      cities_sf = NULL
+    )
+    
+    
+    p_ts <- plot_cluster_trends(
+      hsa_sf2 = cluster_output$df_sf,
+      cluster_col = "cluster", 
+      df_ts = df_long, 
+      region_id_var = "county", 
+      date_var ="Date", 
+      num_var = "value_flu", 
+      den_var = "value_all", 
+      algo_name = method_name
+    )
+    
+    p_combined <- p_map + p_ts + patchwork::plot_layout(widths = c(2, 3))
+    
     # Save the mapped dataset. 
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
     write.csv(
       df_final,
-      paste0("data/cluster_data_season/df_county_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
+      paste0("data/cluster_data_season2/df_county_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
       row.names = FALSE
     )
     
@@ -155,7 +178,7 @@ for (sea in unique_seasons) {
     )
     ggplot2::ggsave(
       filename = png_file,
-      plot = cluster_output$p_combined,
+      plot = p_combined,
       width = 15,
       height = 10,
       dpi = 150
@@ -184,7 +207,7 @@ df_hsa <- df_long %>%
   dplyr::filter(!is.na(value))
 
 
-method_name <- "clustergeo"
+method_name <- "redcap"
 # =========================================================================
 # [STEP 1] Outer Loop: Setting the Target 'Test' Season
 # =========================================================================
@@ -203,7 +226,7 @@ for (sea in unique_seasons) {
   # This restricts the training data strictly to the peak influenza period (October to May).
   df_train_in_season <- df_train_seasons %>%
     mutate(Date_parsed = as.Date(Date)) %>%
-    filter(month(Date_parsed) %in% c(10, 11, 12, 1, 2, 3, 4, 5))
+    filter(month(Date_parsed) %in% c(10, 11, 12, 1, 2, 3))
   
   # Compute Principal Component scores based on the combined historical training seasons
   scoring_matrix <- get_pc_scores(
@@ -228,7 +251,7 @@ for (sea in unique_seasons) {
   # =========================================================================
   # [STEP 2] Inner Loop: Iterating over Cluster Scales (K = 5 to 25)
   # =========================================================================
-  for(i in 2:4){
+  for(i in 2:22){
     
     print(paste("Running", method_name, "| Excluded:", sea, "| K =", i))
     
@@ -295,7 +318,7 @@ for (sea in unique_seasons) {
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
     write.csv(
       df_final,
-      paste0("data/cluster_data_season/df_hsa_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
+      paste0("data/cluster_data_season2/df_hsa_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
       row.names = FALSE
     )
     

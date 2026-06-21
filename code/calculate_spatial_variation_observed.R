@@ -163,11 +163,19 @@ metrics_peak_only <- calculate_spatial_variation_observed(
   by_season       = TRUE,
   compute_overall = TRUE,
   peak_weeks_only = TRUE,       
-  peak_months     = c(11, 12, 1, 2, 3) 
+  peak_months     = c(10, 11, 12, 1, 2, 3) 
 )
 
 print("--- [Scenario 2: Peak Season Only] ---")
 print(metrics_peak_only)
+
+
+ggplot(metrics_normal) + 
+  geom_line(aes(x = season, y = lambda_K, group = geo_level, color = geo_level)) +
+  geom_line(data = metrics_peak_only, 
+            aes(x = season, y = lambda_K, group = geo_level, color = geo_level), 
+            linetype =  "dotted",
+            linewidth = 1)
 
 
 
