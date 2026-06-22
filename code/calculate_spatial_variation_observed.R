@@ -4,7 +4,7 @@ library(tidyr)
 
 #' Advanced Spatial Variation Metric Calculator (Lambda K)
 #'
-#' @param obs_data Cleaned long format data (containing geo_level: county, state, rac, dshs, hsa, etc.)
+#' @param obs_sdata Cleaned long format data (containing geo_level: county, state, rac, dshs, hsa, etc.)
 #' @param mapping_df A crosswalk table linking counties to region IDs
 #' @param agg_levels Character vector of aggregation levels to process
 #' @param by_season Logical. If TRUE, computes metrics broken down by season.
@@ -125,16 +125,23 @@ calculate_spatial_variation_observed <- function(obs_data,
 # ==============================================================================
 # 1. Data Loading and Crosswalk Mapping Consolidation
 # ==============================================================================
-obs_all   <- read.csv("data/cluster_data/df_county_clustergeo_5_all.csv")
+obs_all   <- read.csv( "data/cluster_data/df_county_redcap_14_all.csv")
 rac_df    <- read.csv("data/tx_rac.csv") %>% rename(county = County)
 dshs_meta <- read.csv("data/tx_dshs_region.csv") 
 hsa_meta  <- read.csv("data/tx_hsa.csv") 
+cluster_tmp <- read.csv( "data/cluster_data/df_county_redcap_14.csv")
+cluster_meta <- cluster_tmp %>%
+  dplyr::select(county, cluster) %>%
+  distinct() %>%
+  mutate(cluster = paste0("G_", cluster))
 
 # Build the global master crosswalk table to map counties to all target geo-levels
 full_mapping_table <- rac_df %>% 
   dplyr::select(county, rac = RAC) %>% 
   dplyr::left_join(dshs_meta %>% dplyr::select(county, dshs = dshs_region), by = "county") %>% 
-  dplyr::left_join(hsa_meta  %>% dplyr::select(county, hsa_nci_id), by = "county")
+  dplyr::left_join(hsa_meta  %>% dplyr::select(county, hsa_nci_id), by = "county") %>%
+  dplyr::left_join(cluster_meta  %>% dplyr::select(county, cluster), by = "county") 
+  
 
 
 # ==============================================================================
@@ -145,7 +152,7 @@ full_mapping_table <- rac_df %>%
 metrics_normal <- calculate_spatial_variation_observed(
   obs_data        = obs_all, 
   mapping_df      = full_mapping_table, 
-  agg_levels      = c("rac", "dshs", "hsa"), # 🌟 Changed "hsa_nci_id" to "hsa"
+  agg_levels      = c("rac", "dshs", "hsa", "cluster"), # 🌟 Changed "hsa_nci_id" to "hsa"
   by_season       = TRUE,
   compute_overall = TRUE,
   peak_weeks_only = FALSE
@@ -159,7 +166,7 @@ print(metrics_normal)
 metrics_peak_only <- calculate_spatial_variation_observed(
   obs_data        = obs_all, 
   mapping_df      = full_mapping_table, 
-  agg_levels      = c("rac", "dshs", "hsa"), # 🌟 Changed "hsa_nci_id" to "hsa"
+  agg_levels      = c("rac", "dshs", "hsa", "cluster"), # 🌟 Changed "hsa_nci_id" to "hsa"
   by_season       = TRUE,
   compute_overall = TRUE,
   peak_weeks_only = TRUE,       
@@ -175,7 +182,7 @@ ggplot(metrics_normal) +
   geom_line(data = metrics_peak_only, 
             aes(x = season, y = lambda_K, group = geo_level, color = geo_level), 
             linetype =  "dotted",
-            linewidth = 1)
+            linewidth = 1) 
 
 
 

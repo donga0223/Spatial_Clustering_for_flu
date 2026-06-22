@@ -51,7 +51,7 @@ all_ribbon_data <- function(date_list,
     seq_along(date_list),
     function(d, i) {
       out_file <- file.path(
-        "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season",
+        "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season2",
         output_folder,
         paste0(d, "-", model_name, ".csv")
       )
@@ -144,7 +144,7 @@ make_geo_mapping <- function(obs,
         county = as.character(county),
         hsa_nci_id = as.character(hsa_nci_id),
         RAC = as.character(RAC),
-        DSHS_Region = as.character(DSHS_Region)
+        dshs_region = as.character(dshs_region)
       )
     
     rac_level <- obs %>%
@@ -162,10 +162,10 @@ make_geo_mapping <- function(obs,
       distinct(unit_id) %>%
       mutate(county = unit_id) %>%
       left_join(rac_map2, by = "county") %>%
-      filter(!is.na(DSHS_Region)) %>%
+      filter(!is.na(dshs_region)) %>%
       mutate(
         geo_level = "dshs_region",
-        location = as.character(DSHS_Region)
+        location = as.character(dshs_region)
       ) %>%
       dplyr::select(unit_id, geo_level, location)
     
@@ -384,7 +384,7 @@ get_wis <- function(target_date,
                     cluster_prefix = "G_") {
   
   out_file <- file.path(
-    "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season",
+    "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season2",
     output_folder,
     paste0(target_date, "-", model_name, ".csv")
   )

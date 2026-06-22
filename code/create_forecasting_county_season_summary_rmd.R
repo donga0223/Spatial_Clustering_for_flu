@@ -12,7 +12,7 @@ rac_map <- read.csv("data/tx_rac.csv") %>%
     RAC    = as.character(RAC),
     county = as.character(county)
   ) %>%
-  left_join(tx_dshs, by = c("county" = "County")) %>%
+  left_join(tx_dshs, by = "county") %>%
   left_join(tx_hsa, by = "county")
 
 
@@ -31,7 +31,7 @@ if(2==3){
   res_clustergeo_5 <- run_cluster_eval(
     date_list = date_list2324,
     n_cluster = 5,
-    method_name = "county_clustergeo",
+    method_name = "county_redcap",
     season = "2023-24",
     unit_id_var = "county",
     unit_level_name = "county",
@@ -41,8 +41,8 @@ if(2==3){
     make_plots = TRUE
   )
   
-  res_skater_k5$summary_metrics
-  res_skater_k5$plots$h1
+  res_clustergeo_5$summary_metrics
+  res_clustergeo_5$plots$h1
   
 }
 
@@ -67,8 +67,9 @@ date_list_2526 <- seq.Date(
 
 
 
-methods <- c("county_clustergeo", "county_skater", "county_redcap")
-seasons <- c("2024-25", "2025-26")
+#methods <- c("county_clustergeo", "county_skater", "county_redcap")
+methods <- c("county_redcap")
+seasons <- c("2023-24", "2024-25", "2025-26")
 
 for (season in seasons) {
   
@@ -110,7 +111,7 @@ for (season in seasons) {
     
     outfile <- file.path(
       "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
-      paste0("summary_", method_name, "_", season, ".RData")
+      paste0("summary_", method_name, "_", season, "_2.RData")
     )
     
     save(res_list, file = outfile)
