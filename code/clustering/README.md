@@ -14,7 +14,7 @@ The clustering outputs are used later for forecasting, summary metrics, and eval
 | `fPCA_contiguous_function.R` | Helper functions for FPCA feature extraction, spatial clustering, and plotting |
 | `save_all_csv.ipynb` | Combines season-specific clustering files into `_all.csv` files |
 | `clean_data.R` | Data cleaning script |
-| `cluster_data.R` | Earlier clustering script / reference version |
+| `cluster_data.R` | Legacy clustering script. Uses full-year data and does not apply leave-one-season-out training |
 | `save_av.ipynb` | Helper notebook for creating animation/video outputs |
 
 ---
