@@ -51,7 +51,7 @@ all_ribbon_data <- function(date_list,
     seq_along(date_list),
     function(d, i) {
       out_file <- file.path(
-        "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season2",
+        "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season",
         output_folder,
         paste0(d, "-", model_name, ".csv")
       )
@@ -384,7 +384,7 @@ get_wis <- function(target_date,
                     cluster_prefix = "G_") {
   
   out_file <- file.path(
-    "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season2",
+    "/work2/09967/dongahkim0223/frontera/Spatial_clustering/model_output/season",
     output_folder,
     paste0(target_date, "-", model_name, ".csv")
   )
