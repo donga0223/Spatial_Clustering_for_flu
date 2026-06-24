@@ -607,46 +607,6 @@ add_eval_metrics <- function(df_all_wide,
   out
 }
 
-add_spatial_variation_metric <- function(df_all_wide,
-                                         summary_metrics,
-                                         unit_level_name = "county",
-                                         agg_levels = c("G", "rac", "dshs_region", "hsa"),
-                                         state_level = "state") {
-  
-  inc_unit <- paste0("inc_", unit_level_name)
-  inc_state <- paste0("inc_", state_level)
-  
-  agg_levels <- agg_levels[
-    paste0("inc_", agg_levels) %in% names(df_all_wide)
-  ]
-  
-  purrr::map_dfr(agg_levels, function(lev) {
-    
-    inc_lev <- paste0("inc_", lev)
-    
-    df_all_wide %>%
-      filter(
-        !is.na(.data[[inc_unit]]),
-        !is.na(.data[[inc_lev]]),
-        !is.na(.data[[inc_state]])
-      ) %>%
-      group_by(reference_date, target_end_date, horizon) %>%
-      summarise(
-        numerator = sum((.data[[inc_unit]] - .data[[inc_lev]])^2, na.rm = TRUE),
-        denominator = sum((.data[[inc_unit]] - .data[[inc_state]])^2, na.rm = TRUE),
-        spatial_variation_preserved = ifelse(
-          denominator > 0,
-          1 - numerator / denominator,
-          NA_real_
-        ),
-        .groups = "drop"
-      ) %>%
-      mutate(
-        geo_level = lev,
-        metric = paste0("spatial_variation_", lev, "_vs_", state_level)
-      )
-  })
-}
 
 summarize_metrics <- function(df_all_wide2,
                               method_name,
@@ -690,104 +650,6 @@ summarize_metrics <- function(df_all_wide2,
   summary_all
 }
 
-make_horizon_plots <- function(df_all_wide,
-                               date_list,
-                               method_name,
-                               n_cluster,
-                               unit_level_name = "hsa",
-                               unit_label = "HSA",
-                               agg_levels = c("G", "rac", "dshs_region", "hsa", "state")) {
-  
-  plot_list <- list()
-  
-  agg_levels <- agg_levels[agg_levels != unit_level_name]
-  
-  plot_levels <- c(unit_level_name, agg_levels)
-  
-  plot_levels <- plot_levels[
-    paste0("est_median_", plot_levels) %in% names(df_all_wide) &
-      paste0("est_low_", plot_levels) %in% names(df_all_wide) &
-      paste0("est_high_", plot_levels) %in% names(df_all_wide)
-  ]
-  
-  plot_cols <- unlist(
-    lapply(
-      c("est_median_", "est_low_", "est_high_"),
-      function(prefix) paste0(prefix, plot_levels)
-    )
-  )
-  
-  level_labels <- c(
-    hsa = "HSA",
-    county = "County",
-    G = "Cluster",
-    rac = "RAC",
-    dshs_region = "DSHS Region",
-    state = "State"
-  )
-  
-  level_labels[unit_level_name] <- unit_label
-  
-  inc_unit <- paste0("inc_", unit_level_name)
-  
-  for (h in sort(unique(na.omit(df_all_wide$horizon)))) {
-    
-    base_df_h <- df_all_wide %>%
-      filter(horizon == h) %>%
-      mutate(target_end_date = as.Date(target_end_date)) %>%
-      filter(
-        target_end_date >= as.Date(min(date_list) - 7),
-        target_end_date <= as.Date(max(date_list) + 28)
-      )
-    
-    plot_df_h <- base_df_h %>%
-      pivot_longer(
-        cols = all_of(plot_cols),
-        names_to = c(".value", "geo_level"),
-        names_pattern = "est_(median|low|high)_(.*)"
-      ) %>%
-      mutate(
-        geo_level = factor(
-          geo_level,
-          levels = plot_levels,
-          labels = unname(level_labels[plot_levels])
-        )
-      )
-    
-    plot_list[[paste0("h", h)]] <- ggplot(plot_df_h, aes(x = target_end_date)) +
-      geom_ribbon(
-        aes(ymin = low, ymax = high, fill = geo_level),
-        alpha = 0.15
-      ) +
-      geom_line(
-        aes(y = median, color = geo_level),
-        linewidth = 0.8
-      ) +
-      geom_point(
-        data = base_df_h,
-        aes(y = .data[[inc_unit]]),
-        color = "black",
-        size = 0.8,
-        alpha = 0.8
-      ) +
-      facet_wrap(~ unit_id, scales = "free_y") +
-      labs(
-        title = paste0(method_name, ", k = ", n_cluster, ", horizon = ", h),
-        x = "Target end date",
-        y = "% ED visits due to influenza",
-        color = "Forecast level",
-        fill = "Forecast level"
-      ) +
-      theme_bw() +
-      theme(
-        legend.position = "bottom",
-        strip.background = element_rect(fill = "grey90"),
-        axis.text.x = element_text(angle = 45, hjust = 1)
-      )
-  }
-  
-  plot_list
-}
 
 
 run_cluster_eval <- function(date_list,
@@ -876,68 +738,49 @@ run_cluster_eval <- function(date_list,
     agg_levels = agg_levels
   )
   
-  spatial_agg_levels <- agg_levels
-  spatial_agg_levels[spatial_agg_levels == "cluster"] <- "G"
-  
-  spatial_var_metrics <- add_spatial_variation_metric(
-    df_all_wide = df_all_wide2,
-    unit_level_name = unit_level_name,
-    agg_levels = spatial_agg_levels[spatial_agg_levels != "state"]
-  )
-  
-  spatial_var_summary <- spatial_var_metrics %>%
-    group_by(horizon, geo_level) %>%
-    summarise(
-      spatial_variation_preserved = mean(spatial_variation_preserved, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    mutate(metric_name = paste0("spatial_var_", geo_level)) %>%
-    dplyr::select(horizon, metric_name, spatial_variation_preserved) %>%
-    pivot_wider(
-      names_from = metric_name,
-      values_from = spatial_variation_preserved
-    )
-  
   summary_metrics <- summarize_metrics(
     df_all_wide2 = df_all_wide2,
     method_name = method_name,
     n_cluster = n_cluster,
     unit_level_name = unit_level_name,
     agg_levels = agg_levels
-  ) %>%
-    left_join(spatial_var_summary, by = "horizon")
-
-  plot_list <- NULL
+  ) 
   
-  if (make_plots) {
-    plot_list <- make_horizon_plots(
-      df_all_wide = df_all_wide,
-      date_list = date_list,
+  summary_long <- make_summary_long(
+    summary_all = summary_metrics,
+    unit_level_name = unit_level_name,
+    unit_label = unit_label,
+    agg_levels = agg_levels
+  )
+  df_all_wide2 <- df_all_wide2 %>%
+    dplyr::mutate(
       method_name = method_name,
       n_cluster = n_cluster,
-      unit_level_name = unit_level_name,
-      unit_label = unit_label,
-      agg_levels = agg_levels
+      season = season
     )
-  }
+  summary_metrics <- summary_metrics %>%
+    dplyr::mutate(
+      season = season
+    )
+  summary_long <- summary_long %>%
+    dplyr::mutate(
+      season = season
+    )
+  
   
   list(
     method_name = method_name,
     n_cluster = n_cluster,
+    season = season,
     unit_id_var = unit_id_var,
     unit_level_name = unit_level_name,
     agg_levels = agg_levels,
-    obs = obs,
-    obs_all = obs_all,
     geo_mapping = geo_mapping,
     geo_wide_mapping = geo_wide_mapping,
-    df_all = df_all,
-    df_all_wide = df_all_wide,
-    df_all_wide2 = df_all_wide2,
+    df_all_wide = df_all_wide2,
     wis_all = wis_all,
-    spatial_var_metrics = spatial_var_metrics,
     summary_metrics = summary_metrics,
-    plots = plot_list
+    summary_long = summary_long
   )
 }
 
@@ -1011,73 +854,3 @@ make_summary_long <- function(summary_all,
     )
 }
 
-plot_summary_metrics <- function(summary_all,
-                                 method_name = NULL,
-                                 unit_level_name = "hsa",
-                                 unit_label = "HSA",
-                                 agg_levels = c("G", "rac", "dshs_region", "hsa", "state")) {
-  
-  summary_long2 <- make_summary_long(
-    summary_all = summary_all,
-    unit_level_name = unit_level_name,
-    unit_label = unit_label,
-    agg_levels = agg_levels
-  )
-  
-  p <- ggplot2::ggplot(
-    summary_long2,
-    ggplot2::aes(
-      x = n_cluster,
-      y = value,
-      color = metric_clean,
-      group = metric_clean
-    )
-  ) +
-    ggplot2::geom_point() +
-    ggplot2::geom_line() +
-    ggplot2::facet_grid(
-      metric_type ~ horizon,
-      scales = "free_y"
-    ) +
-    ggplot2::theme_bw() +
-    ggplot2::labs(
-      x = "Number of clusters",
-      y = "Value",
-      color = "Comparison",
-      title = paste("Method:", method_name)
-    )
-  
-  return(p)
-}
-
-plot_summary_method_type <- function(all_summary_long,
-                                     metric_type_select) {
-  
-  all_summary_long2 <- all_summary_long %>%
-    dplyr::filter(metric_type == metric_type_select)
-  
-  p <- ggplot2::ggplot(
-    all_summary_long2,
-    ggplot2::aes(
-      x = n_cluster,
-      y = value,
-      color = method_name,
-      group = method_name
-    )
-  ) +
-    ggplot2::geom_point() +
-    ggplot2::geom_line() +
-    ggplot2::facet_grid(
-      metric_clean ~ horizon,
-      scales = "free_y"
-    ) +
-    ggplot2::theme_bw() +
-    ggplot2::labs(
-      x = "Number of clusters",
-      y = "Value",
-      color = "Method",
-      title = paste("Metric Type:", metric_type_select)
-    )
-  
-  return(p)
-}

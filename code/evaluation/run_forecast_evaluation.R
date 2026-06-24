@@ -1,4 +1,4 @@
-source("code/create_forecasting_county_season_summary_rmd_functions.R")
+source("code/evaluation/forecast_evaluation_functions.R")
 
 
 tx_dshs <- read.csv("data/tx_dshs_region.csv")
@@ -70,6 +70,7 @@ date_list_2526 <- seq.Date(
 #methods <- c("county_clustergeo", "county_skater", "county_redcap")
 methods <- c("county_redcap")
 seasons <- c("2023-24", "2024-25", "2025-26")
+seasons <- c("2024-25", "2025-26")
 
 for (season in seasons) {
   
@@ -91,7 +92,7 @@ for (season in seasons) {
     
     res_list <- list()
     
-    for (k in 5:25) {
+    for (k in seq(5,45,2)) {
       
       cat("k =", k, "\n")
       
@@ -111,7 +112,7 @@ for (season in seasons) {
     
     outfile <- file.path(
       "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
-      paste0("summary_", method_name, "_", season, "_2.RData")
+      paste0("summary_", method_name, "_", season, ".RData")
     )
     
     save(res_list, file = outfile)
