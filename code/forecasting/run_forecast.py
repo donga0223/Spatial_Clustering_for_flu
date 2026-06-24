@@ -1,8 +1,8 @@
 import argparse
 import sys
-sys.path.append("code")
-import os
 from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
+import os
 from datetime import datetime, timedelta
 
 import numpy as np

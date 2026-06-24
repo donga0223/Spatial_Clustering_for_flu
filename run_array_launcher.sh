@@ -28,7 +28,7 @@ export LAUNCHER_JOB_FILE=launcher_jobs/launcher_jobs_${METHOD}_${DATE}.txt
 rm -f "$LAUNCHER_JOB_FILE"
 
 for K in $(seq 5 2 45); do
-  echo "python -u run_forecast.py --forecast_date $DATE --method_name $METHOD --k_min $K --k_max $K --n_workers 1" >> "$LAUNCHER_JOB_FILE"
+  echo "python -u code/forecasting/run_forecast.py --forecast_date $DATE --method_name $METHOD --k_min $K --k_max $K --n_workers 1" >> "$LAUNCHER_JOB_FILE"
 done
 
 echo "LAUNCHER_JOB_FILE=$LAUNCHER_JOB_FILE"
