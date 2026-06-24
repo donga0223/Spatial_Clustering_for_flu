@@ -22,7 +22,7 @@ The outputs are later used for:
 | File | Purpose |
 |------|---------|
 | `spatial_variation_functions.R` | Helper functions for spatial variation calculation and plotting |
-| `run_spatial_variation_observed.R` | Main script for running spatial variation analysis |
+| `run_spatial_variation.R` | Main script for running spatial variation analysis |
 | `README.md` | Documentation |
 
 ---
