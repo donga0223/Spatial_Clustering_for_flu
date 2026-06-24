@@ -116,10 +116,6 @@ load_spatial_variation_case <- function(f_path,
   ))
 }
 
-
-# ==========================================================
-# Internal helper: calculate lambda for one selected period
-# ==========================================================
 # ==========================================================
 # Internal helper: calculate lambda for one selected period
 # ==========================================================
@@ -410,7 +406,7 @@ compile_spatial_variation_results <- function(dir_season,
   message("by_season_results rows: ", nrow(by_season_results))
   message("by_season_results cols: ", paste(names(by_season_results), collapse = ", "))
   
-  iif (nrow(by_season_results) == 0 || !"method" %in% names(by_season_results)) {
+  if (nrow(by_season_results) == 0 || !"method" %in% names(by_season_results)) {
     stop(
       "No by-season results were generated. ",
       "Most likely calculate_spatial_variation() returned 0 rows for every file. ",
