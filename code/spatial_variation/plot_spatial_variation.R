@@ -6,11 +6,11 @@
 library(dplyr)
 library(ggplot2)
 
-results_path <- "results/spatial_variation/spatial_variation_results.rds"
+results_path <- "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results/spatial_variation_results.rds"
 
 all_results_final <- readRDS(results_path)
 
-output_dir <- "figures/spatial_variation"
+output_dir <- "/work2/09967/dongahkim0223/frontera/Spatial_clustering/figures/spatial_variation"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 level_order <- c(
@@ -53,7 +53,7 @@ available_methods <- unique(plot_data$method[plot_data$geo_level == "cluster"])
 
 pdf_path <- file.path(output_dir, "spatial_variation_all_cases.pdf")
 
-pdf(file = pdf_path, width = 12, height = 8)
+pdf(file = pdf_path, width = 8, height = 12)
 
 for (target_method in available_methods) {
   

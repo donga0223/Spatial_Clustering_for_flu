@@ -62,7 +62,7 @@ if (RUN_MODE == "single") {
 # Save / combine results
 # ==========================================================
 
-output_dir <- "/work2/09967/dongahkim0223/frontera/Spatial_clustering/figures"
+output_dir <- "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 if (RUN_MODE == "single") {
