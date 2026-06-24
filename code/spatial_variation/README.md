@@ -17,12 +17,12 @@ This analysis is used to compare how well different regional aggregation methods
 
 ## Main Scripts
 
-| File                            | Purpose                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------- |
+| File | Purpose |
+|------|---------|
 | `spatial_variation_functions.R` | Core helper functions for loading data, computing lambda, and compiling results |
-| `run_spatial_variation.R`       | Main script for running spatial variation analysis                              |
-| `README.md`                     | Documentation                                                                   |
-
+| `run_spatial_variation.R` | Runs spatial variation analysis and saves `.rds` results |
+| `plot_spatial_variation.R` | Loads saved `.rds` results and generates summary figures |
+| `README.md` | Documentation |
 ---
 
 ## Workflow
