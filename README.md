@@ -12,7 +12,7 @@ for d in 2025-10-04 2025-10-11 2025-10-18 2025-10-25 \
   2026-02-07 2026-02-14 2026-02-21 2026-02-28 \
   2026-03-07 2026-03-14 2026-03-21 2026-03-28; do
 
-  sbatch --export=METHOD=redcap,DATE=$d batch/run_array_launcher.sh
+  sbatch --export=METHOD=redcap,DATE=$d run_array_launcher.sh
 
 done
 ```
