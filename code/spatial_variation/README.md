@@ -1,44 +1,44 @@
 # Spatial Variation Analysis
 
-This folder contains code for calculating spatial variation preserved across different geographical aggregation levels.
+This folder contains code for calculating **spatial variation preservation** across multiple geographical aggregation levels.
 
-The goal is to quantify how much spatial heterogeneity is preserved after aggregation.
+The goal is to quantify how much spatial heterogeneity at the county level is preserved after aggregating counties into larger regions.
 
-Spatial variation is evaluated for:
-- HSA
-- RAC
-- DSHS Region
-- Cluster-based regions
+Aggregation levels evaluated:
 
-The outputs are later used for:
-- clustering comparison
-- model evaluation
-- summary figures for analysis and manuscript
+* HSA
+* RAC
+* DSHS Region
+* Cluster-based regions
+
+This analysis is used to compare how well different regional aggregation methods preserve local spatial structure.
 
 ---
 
 ## Main Scripts
 
-| File | Purpose |
-|------|---------|
-| `spatial_variation_functions.R` | Helper functions for spatial variation calculation and plotting |
-| `run_spatial_variation.R` | Main script for running spatial variation analysis |
-| `README.md` | Documentation |
+| File                            | Purpose                                                                         |
+| ------------------------------- | ------------------------------------------------------------------------------- |
+| `spatial_variation_functions.R` | Core helper functions for loading data, computing lambda, and compiling results |
+| `run_spatial_variation.R`       | Main script for running spatial variation analysis                              |
+| `README.md`                     | Documentation                                                                   |
 
 ---
 
-## Quick Workflow
+## Workflow
 
 ```text
-cluster_data_season/*.csv
+cluster_data_season/*_all.csv
     ↓
-load observed test season data
+load observed held-out test season data
     ↓
 build geographic mapping table
     ↓
-calculate spatial variation
+compute spatial variation preservation (lambda)
     ↓
-compute overall summaries
+summarize by season
+    ↓
+compute overall summary across test seasons
     ↓
 generate figures
 ```
@@ -47,18 +47,17 @@ generate figures
 
 ## Main Inputs
 
-Main input files are generated from the clustering pipeline:
+Input files are generated from the clustering pipeline.
 
 ```text
-data/cluster_data_season/*.csv
 data/cluster_data_season/*_all.csv
 ```
 
 Examples:
 
 ```text
-df_county_redcap_exclude_2024-25_5.csv
 df_county_redcap_exclude_2024-25_5_all.csv
+df_county_clustergeo_exclude_2025-26_15_all.csv
 ```
 
 Metadata files:
@@ -69,11 +68,12 @@ data/tx_dshs_region.csv
 data/tx_hsa.csv
 ```
 
-These are used to map counties to:
-- RAC
-- DSHS Region
-- HSA
-- Cluster
+These files are used to map counties into:
+
+* RAC
+* DSHS Region
+* HSA
+* Cluster
 
 ---
 
@@ -81,59 +81,126 @@ These are used to map counties to:
 
 Generated outputs include:
 
-- spatial variation summary tables
-- overall comparison figures
-- season-specific comparison figures
+* spatial variation summary tables
+* overall comparison figures
+* test-season-specific comparison figures
+* optional `.rds` result files
 
-Example outputs:
+Examples:
 
 ```text
-figures/lambda_overall_test_only.png
-figures/lambda_by_test_season.png
 figures/spatial_variation_all_cases.pdf
+figures/spatial_variation_results.rds
 ```
 
 ---
 
-## Spatial Variation Metrics
+## Metric Definition
 
-Two versions of spatial variation are considered.
+Spatial variation preservation is measured using:
 
-### 1. Unweighted Spatial Variation
+```text
+λ = 1 - (within-region variance / state-level variance)
+```
+
+where:
+
+* **within-region variance** measures county-level variation relative to aggregated regions
+* **state-level variance** measures county-level variation relative to the state average
+
+Interpretation:
+
+* λ close to **1** → aggregation preserves spatial heterogeneity well
+* λ close to **0** → aggregation preserves little spatial structure
+* larger λ indicates better preservation of county-level variation
+
+---
+
+## Weighting Schemes
+
+Two versions are supported.
+
+### 1. Unweighted
+
 Each county contributes equally.
 
-Used to evaluate overall preservation of spatial heterogeneity.
+Used to evaluate raw spatial heterogeneity preservation.
 
 ---
 
-### 2. Weighted Spatial Variation
-Spatial variation is weighted by regional importance.
+### 2. Weighted
 
-Possible weighting schemes:
-- population
-- ED visit volume
-- other custom weights
+Counties are weighted by importance.
 
-This helps reduce sensitivity to noisy small regions and gives more importance to large influential regions.
+Current supported weighting:
+
+* population
+
+Future extensions may include:
+
+* ED visit volume
+* custom weights
+
+Weighted analysis gives more influence to larger or more important counties.
 
 ---
 
-## Current Recommended Setup
+## Analysis Setup
 
 ```text
 Input unit: County
 Comparison levels: HSA, RAC, DSHS, Cluster
-Periods: Full period + Peak season only
-Peak months: October–March
+Periods:
+    - Full Period
+    - Flu Season Months
+Flu season months:
+    October–March
 ```
 
 ---
 
-## Documentation
+## Output Structure
 
-Detailed documentation:
+Results contain:
 
-- [Workflow](docs/workflow.md)
-- [Metric definition](docs/metrics.md)
-- [Output files](docs/output_files.md)
-- [Design choices](docs/design_choices.md)
+* `method`
+* `K`
+* `geo_level`
+* `period_type`
+* `type`
+* `season`
+* `test_season`
+* `lambda_K`
+* `n_weeks`
+* `weight_type`
+
+### Result Types
+
+#### by_season
+
+Lambda computed using one held-out test season.
+
+Example:
+
+```text
+test_season = 2024-25
+```
+
+#### overall_across_test_seasons
+
+Average lambda across all held-out test seasons.
+
+Example:
+
+```text
+test_season = Overall
+```
+
+---
+
+## Notes
+
+* County is the base spatial unit.
+* All comparisons are evaluated relative to county-level variation.
+* Overall summaries are computed only during the final compilation step.
+* Intermediate functions only return season-specific results.
