@@ -2,7 +2,7 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(lubridate)
-source("code/fPCA_contiguous_function.R")
+source("code/clustering/fPCA_contiguous_function.R")
 
 # Load raw datasets
 df_long <- read.csv("data/county_edvisits.csv")
@@ -42,19 +42,27 @@ for (sea in unique_seasons) {
   # This trains the cluster boundaries strictly on the remaining available seasons.
   df_train_seasons <- df_long %>% filter(season != sea)
   
-  # This restricts the training data strictly to the peak influenza period (October to May).
+  # This restricts the training data strictly to the peak influenza period (October to May (March)).
   df_train_in_season <- df_train_seasons %>%
     mutate(Date_parsed = as.Date(Date)) %>%
     filter(month(Date_parsed) %in% c(10, 11, 12, 1, 2, 3))
   
   # Compute Principal Component scores based on the combined historical training seasons
-  scoring_matrix <- get_pc_scores(
-    df_ts = df_train_in_season,          
-    group_var = county,     
-    total_variance = 0.95,   
+  #scoring_matrix <- get_pc_scores(
+  #  df_ts = df_train_in_season,          
+  #  group_var = county,     
+  #  total_variance = 0.95, 
+  #  min_nharm = 10, 
+  #  plotfit = FALSE
+  #)
+  
+  scoring_matrix <- get_pc_scores_seasonwise(
+    df_ts = df_train_in_season,
+    group_var = county,
+    total_variance = 0.95,
+    min_nharm = 10, 
     plotfit = FALSE
   )
-  
   # Construct a Spatial Minimum Spanning Tree (MST) using training data
   mst_output <- make_spatial_mst(
     df_sf = sf_county, 
@@ -72,7 +80,7 @@ for (sea in unique_seasons) {
   # =========================================================================
   # [STEP 2] Inner Loop: Iterating over Cluster Scales (K = 5 to 25)
   # =========================================================================
-  for(i in 5:25){
+  for(i in seq(5,45,2)){
     
     print(paste("Running", method_name, "| Excluded:", sea, "| K =", i))
     
@@ -162,7 +170,7 @@ for (sea in unique_seasons) {
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
     write.csv(
       df_final,
-      paste0("data/cluster_data_season2/df_county_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
+      paste0("data/cluster_data_season/df_county_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
       row.names = FALSE
     )
     
@@ -318,7 +326,7 @@ for (sea in unique_seasons) {
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
     write.csv(
       df_final,
-      paste0("data/cluster_data_season2/df_hsa_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
+      paste0("data/cluster_data_season/df_hsa_", method_name, "_exclude_", sea_safe, "_", i, ".csv"),
       row.names = FALSE
     )
     
