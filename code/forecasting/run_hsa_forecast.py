@@ -1,8 +1,8 @@
 import argparse
 import sys
-sys.path.append("code")
-import os
 from pathlib import Path
+sys.path.append(str(Path(__file__).parent))
+import os
 from datetime import datetime, timedelta
 
 import numpy as np
@@ -88,10 +88,12 @@ def run_single_forecast(k, forecast_date, method_name):
     )
     print(f"  [k={k}] Reference date = {ref_date}", flush=True)
 
-
     df_shifted = preprocess_and_plot.shift_future_seasons(df_final, ref_date)
-    transform_df = preprocess_and_plot.transform_incidence(df_shifted)
+    df_shifted_trainable = df_shifted[
+        df_shifted["wk_end_date"] < pd.Timestamp(ref_date)
+    ].copy()
 
+    transform_df = preprocess_and_plot.transform_incidence(df_shifted_trainable)
     
     df, feat_names = preprocess_and_plot.build_features(
         transform_df,
