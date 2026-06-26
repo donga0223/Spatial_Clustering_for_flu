@@ -176,7 +176,7 @@ for (sea in unique_seasons) {
     
     # Export the combined diagnostic map
     png_file <- paste0(
-      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/figures/cluster_combine2/county_",
+      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/figures/cluster_combine/county_",
       method_name,
       "_exclude_",
       sea_safe,
@@ -270,7 +270,7 @@ for (sea in unique_seasons) {
         data_matrix = scoring_matrix,    
         df_ts = df_train_in_season,              
         n_clusters = i,               
-        min_bound = 5,               
+        min_bound = 3,               
         hsa_sf = sf_hsa,
         cities = cities,           
         region_id_var = "hsa_nci_id",
@@ -321,6 +321,30 @@ for (sea in unique_seasons) {
       dplyr::mutate(
         target_end_date = as.Date(Date) + 6
       )
+    
+    p_map <- plot_cluster_map(
+      hsa_sf2 = cluster_output$df_sf, 
+      cluster_col = "cluster", 
+      algo_name = method_name, 
+      hsa_sf = sf_hsa, 
+      sf_county = sf_county2,
+      cities_sf = NULL
+    )
+    
+    
+    p_ts <- plot_cluster_trends(
+      hsa_sf2 = cluster_output$df_sf,
+      cluster_col = "cluster", 
+      df_ts = df_hsa, 
+      region_id_var = "hsa_nci_id", 
+      date_var ="Date", 
+      num_var = "hsa_value_flu", 
+      den_var = "hsa_value_all", 
+      algo_name = method_name
+    )
+    
+    p_combined <- p_map + p_ts + patchwork::plot_layout(widths = c(2, 3))
+    
     
     # Save the mapped dataset. 
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.

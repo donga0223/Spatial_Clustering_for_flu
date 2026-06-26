@@ -2,7 +2,7 @@
 # run_forecasting_summary_figures.R
 # ==========================================================
 
-source("code/forecasting_summary_figure_function.R")
+source("code/evaluation/forecasting_summary_figure_function.R")
 
 base_dir <- "/work2/09967/dongahkim0223/frontera/Spatial_clustering"
 result_dir <- file.path(base_dir, "results")
