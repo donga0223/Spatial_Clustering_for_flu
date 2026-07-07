@@ -27,14 +27,14 @@ mkdir -p launcher_jobs
 export LAUNCHER_JOB_FILE=launcher_jobs/launcher_jobs_${METHOD}_${DATE}.txt
 rm -f "$LAUNCHER_JOB_FILE"
 
-#for K in $(seq 5 2 45); do
-#  echo "python -u code/forecasting/run_forecast.py --forecast_date $DATE --method_name $METHOD --k_min $K --k_max $K --n_workers 1" >> "$LAUNCHER_JOB_FILE"
-#done
+K_LIST="${K_LIST:-7,9,15,21,23,31,45,61}"
+IFS=',' read -ra K_VALUES <<< "$K_LIST"
 
-for K in $(seq 2 22); do
-  echo "python -u code/forecasting/run_hsa_forecast.py --forecast_date $DATE --method_name $METHOD --k_min $K --k_max $K --n_workers 1" >> "$LAUNCHER_JOB_FILE"
+for K in "${K_VALUES[@]}"; do
+  echo "python -u code/forecasting/run_forecast.py --forecast_date $DATE --method_name $METHOD --k_list $K --n_workers 1" >> "$LAUNCHER_JOB_FILE"
 done
 
+echo "K_LIST=$K_LIST"
 echo "LAUNCHER_JOB_FILE=$LAUNCHER_JOB_FILE"
 echo "LAUNCHER_DIR=$LAUNCHER_DIR"
 

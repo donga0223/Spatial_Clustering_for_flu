@@ -174,18 +174,36 @@ def run_single_forecast(k, forecast_date, method_name):
 # ==============================================================================
 # Parallel runner: run all k values for one forecast_date in parallel
 # ==============================================================================
+def parse_k_list(k_list):
+    if k_list is None or k_list.strip() == "":
+        return None
+
+    parsed = sorted({
+        int(k.strip())
+        for k in k_list.split(",")
+        if k.strip() != ""
+    })
+
+    if not parsed:
+        raise ValueError("--k_list must contain at least one integer K value.")
+
+    return parsed
+
+
 def run_all_k_parallel(forecast_date, method_name,
-                       k_min=5, k_max=45, n_workers=None):
+                       k_min=5, k_max=45, k_list=None, n_workers=None):
     """
-    Run forecast for all k (k_min to k_max) in parallel using multiprocessing.
+    Run forecast for selected k values in parallel using multiprocessing.
     """
-    k_list = list(range(k_min, k_max + 1, 2))
+    if k_list is None:
+        k_list = list(range(k_min, k_max + 1, 2))
+
     if n_workers is None:
         n_workers = len(k_list)
 
     args = [(k, forecast_date, method_name) for k in k_list]
 
-    print(f"Running k={k_min}~{k_max} in parallel ({n_workers} workers), "
+    print(f"Running k={','.join(map(str, k_list))} in parallel ({n_workers} workers), "
           f"method={method_name}, date={forecast_date}", flush=True)
 
     with multiprocessing.Pool(processes=n_workers) as pool:
@@ -204,6 +222,8 @@ if __name__ == '__main__':
                         help="skater, clustergeo, or redcap")
     parser.add_argument("--k_min",         type=int, default=5)
     parser.add_argument("--k_max",         type=int, default=45)
+    parser.add_argument("--k_list",        type=str, default=None,
+                        help="Comma-separated selected K values, e.g. 7,9,15,21,23,31,45,61. Overrides k_min/k_max.")
     parser.add_argument("--n_workers",     type=int, default=None,
                         help="Number of parallel workers. Defaults to number of k values.")
 
@@ -216,5 +236,6 @@ if __name__ == '__main__':
         method_name   = args.method_name,
         k_min         = args.k_min,
         k_max         = args.k_max,
+        k_list        = parse_k_list(args.k_list),
         n_workers     = args.n_workers
     )

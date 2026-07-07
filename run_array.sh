@@ -18,11 +18,13 @@ conda activate flusion
 
 cd ~/Spatial_clustering
 
-echo "Running METHOD=$METHOD, DATE=$DATE, k=5~25 in parallel"
+K_LIST="${K_LIST:-7,9,15,21,23,31,45,61}"
+N_WORKERS="${N_WORKERS:-8}"
 
-python run_forecast.py \
+echo "Running METHOD=$METHOD, DATE=$DATE, K_LIST=$K_LIST in parallel"
+
+python code/forecasting/run_forecast.py \
   --forecast_date "$DATE" \
   --method_name "$METHOD" \
-  --k_min 5 \
-  --k_max 5 \
-  --n_workers 1
+  --k_list "$K_LIST" \
+  --n_workers "$N_WORKERS"
