@@ -28,9 +28,8 @@ export LAUNCHER_JOB_FILE=launcher_jobs/launcher_jobs_${METHOD}_${DATE}.txt
 rm -f "$LAUNCHER_JOB_FILE"
 
 K_LIST="${K_LIST:-7,9,15,21,23,31,45,61}"
-IFS=',' read -ra K_VALUES <<< "$K_LIST"
 
-for K in "${K_VALUES[@]}"; do
+for K in $(printf '%s' "$K_LIST" | tr ',' ' '); do
   echo "python -u code/forecasting/run_forecast.py --forecast_date $DATE --method_name $METHOD --k_list $K --n_workers 1" >> "$LAUNCHER_JOB_FILE"
 done
 
