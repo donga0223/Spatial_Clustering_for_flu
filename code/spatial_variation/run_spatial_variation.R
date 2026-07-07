@@ -47,13 +47,15 @@ if (RUN_MODE == "single") {
   results_unweighted <- compile_spatial_variation_results(
     dir_season = "data/cluster_data_season",
     geo_meta = geo_meta,
-    weight_col = NULL
+    weight_col = NULL,
+    prefix = "df_county"
   )
   
   results_weighted <- compile_spatial_variation_results(
     dir_season = "data/cluster_data_season",
     geo_meta = geo_meta,
-    weight_col = "population"
+    weight_col = "population",
+    prefix = "df_county"
   )
 }
 
@@ -90,5 +92,6 @@ if(RUN_MODE == "all"){
   rds_path <- file.path(output_dir, "spatial_variation_results.rds")
   saveRDS(all_results_final, rds_path)
 }
+
 
 

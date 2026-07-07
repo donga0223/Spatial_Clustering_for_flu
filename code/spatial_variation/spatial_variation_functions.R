@@ -324,11 +324,12 @@ calculate_spatial_variation <- function(obs_data,
 # ==========================================================
 compile_spatial_variation_results <- function(dir_season,
                                               geo_meta,
-                                              weight_col = NULL) {
+                                              weight_col = NULL,
+                                              prefix = "df_county") {
   
   file_list <- list.files(
     dir_season,
-    pattern = "_all\\.csv$",
+    pattern = paste0("^", prefix, ".*_all\\.csv$"),
     full.names = TRUE
   )
   

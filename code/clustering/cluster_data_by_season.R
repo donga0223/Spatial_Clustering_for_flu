@@ -80,7 +80,7 @@ for (sea in unique_seasons) {
   # =========================================================================
   # [STEP 2] Inner Loop: Iterating over Cluster Scales (K = 5 to 25)
   # =========================================================================
-  for(i in seq(5,45,2)){
+  for(i in seq(5,65,2)){
     
     print(paste("Running", method_name, "| Excluded:", sea, "| K =", i))
     

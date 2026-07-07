@@ -37,8 +37,7 @@ if(2==3){
     unit_level_name = "county",
     unit_label = "County",
     rac_map = rac_map,
-    agg_levels = c("G", "rac", "dshs_region", "hsa", "state"),
-    make_plots = TRUE
+    agg_levels = c("G", "rac", "dshs_region", "hsa", "state")
   )
   
   res_clustergeo_5$summary_metrics
@@ -70,11 +69,11 @@ date_list_2526 <- seq.Date(
 #methods <- c("county_clustergeo", "county_skater", "county_redcap")
 methods <- c("county_redcap")
 seasons <- c("2023-24", "2024-25", "2025-26")
-seasons <- c("2024-25", "2025-26")
+#seasons <- c("2024-25", "2025-26")
+
 
 for (season in seasons) {
   
-  # season에 맞는 date_list 설정
   if (season == "2023-24") {
     date_list <- date_list_2324
   } else if (season == "2024-25") {
@@ -85,18 +84,25 @@ for (season in seasons) {
   
   for (method_name in methods) {
     
-    cat("\n=============================\n")
-    cat("Season:", season, "\n")
-    cat("Method:", method_name, "\n")
-    cat("=============================\n")
+    outdir <- file.path(
+      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results/",
+      paste0("summary_parts_", method_name, "_", season)
+    )
     
-    res_list <- list()
+    dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
     
-    for (k in seq(5,45,2)) {
+    for (k in seq(5, 65, 2)) {
       
-      cat("k =", k, "\n")
+      outfile_k <- file.path(outdir, paste0("res_k", k, ".RData"))
       
-      res_list[[paste0("k", k)]] <- run_cluster_eval(
+      if (file.exists(outfile_k)) {
+        cat("Already exists, skipping k =", k, "\n")
+        next
+      }
+      
+      cat("\nSeason:", season, " Method:", method_name, " k =", k, "\n")
+      
+      res_k <- run_cluster_eval(
         date_list = date_list,
         n_cluster = k,
         method_name = method_name,
@@ -105,19 +111,92 @@ for (season in seasons) {
         unit_level_name = "county",
         unit_label = "County",
         rac_map = rac_map,
-        agg_levels = c("G", "rac", "dshs_region", "hsa", "state"),
-        make_plots = TRUE
+        agg_levels = c("G", "rac", "dshs_region", "hsa", "state")
       )
+      
+      save(res_k, file = outfile_k)
+      cat("Saved:", outfile_k, "\n")
+      
+      rm(res_k)
+      gc()
+    }
+  }
+}
+
+
+
+outdir <- file.path(
+  "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
+  paste0("summary_parts_", method_name, "_", season)
+)
+
+files <- list.files(outdir, pattern = "^res_k\\d+\\.RData$", full.names = TRUE)
+
+res_list <- list()
+
+for (f in files) {
+  load(f)  # loads res_k
+  
+  k_name <- stringr::str_extract(basename(f), "k\\d+")
+  res_list[[k_name]] <- res_k
+}
+
+outfile <- file.path(
+  "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
+  paste0("summary_", method_name, "_", season, ".RData")
+)
+
+save(res_list, file = outfile)
+
+if(2==3){
+  for (season in seasons) {
+    
+    # season에 맞는 date_list 설정
+    if (season == "2023-24") {
+      date_list <- date_list_2324
+    } else if (season == "2024-25") {
+      date_list <- date_list_2425
+    } else if (season == "2025-26") {
+      date_list <- date_list_2526
     }
     
-    outfile <- file.path(
-      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
-      paste0("summary_", method_name, "_", season, ".RData")
-    )
-    
-    save(res_list, file = outfile)
-    
-    cat("Saved:", outfile, "\n")
+    for (method_name in methods) {
+      
+      cat("\n=============================\n")
+      cat("Season:", season, "\n")
+      cat("Method:", method_name, "\n")
+      cat("=============================\n")
+      
+      res_list <- list()
+      
+      for (k in seq(5,45,2)) {
+        
+        cat("k =", k, "\n")
+        
+        res_list[[paste0("k", k)]] <- run_cluster_eval(
+          date_list = date_list,
+          n_cluster = k,
+          method_name = method_name,
+          season = season,
+          unit_id_var = "county",
+          unit_level_name = "county",
+          unit_label = "County",
+          rac_map = rac_map,
+          agg_levels = c("G", "rac", "dshs_region", "hsa", "state")
+        )
+      }
+      
+      outfile <- file.path(
+        "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
+        paste0("summary_", method_name, "_", season, ".RData")
+      )
+      
+      save(res_list, file = outfile)
+      
+      cat("Saved:", outfile, "\n")
+    }
   }
+  
+  
 }
 

@@ -661,8 +661,7 @@ run_cluster_eval <- function(date_list,
                              unit_level_name = "hsa",
                              unit_label = NULL,
                              rac_map = NULL,
-                             agg_levels = c("G", "rac", "dshs_region", "hsa", "state"),
-                             make_plots = TRUE) {
+                             agg_levels = c("G", "rac", "dshs_region", "hsa", "state")) {
   
   if (is.null(unit_label)) {
     unit_label <- stringr::str_to_title(unit_level_name)
@@ -775,6 +774,7 @@ run_cluster_eval <- function(date_list,
     unit_id_var = unit_id_var,
     unit_level_name = unit_level_name,
     agg_levels = agg_levels,
+    obs_all = obs_all,
     geo_mapping = geo_mapping,
     geo_wide_mapping = geo_wide_mapping,
     df_all_wide = df_all_wide2,
