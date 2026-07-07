@@ -69,11 +69,13 @@ get_pc_scores <- function(df_ts,
   }
   
   # 6. Functional PCA 수행 및 95%(total_variance) 설명력 만족하는 최적 주성분 개수 도출
-  fpca_res_init <- fda::pca.fd(fd_obj, nharm = 50)
-  nharm_opt <- max(
-    which(cumsum(fpca_res_init$varprop) >= total_variance)[1],
-    min_nharm
-  )
+  nharm_init <- max(1, min(50, ncol(data_mat_smooth), n_weeks - 2))
+  fpca_res_init <- fda::pca.fd(fd_obj, nharm = nharm_init)
+  nharm_needed <- which(cumsum(fpca_res_init$varprop) >= total_variance)[1]
+  if (is.na(nharm_needed)) {
+    nharm_needed <- nharm_init
+  }
+  nharm_opt <- min(max(nharm_needed, min_nharm), nharm_init)
   
   # 최적의 주성분 개수로 fPCA 최종 재실행
   fpca_res <- fda::pca.fd(fd_obj, nharm = nharm_opt)
@@ -182,11 +184,13 @@ get_pc_scores_seasonwise <- function(df_ts,
   }
   
   # 7. FPCA
-  fpca_res_init <- fda::pca.fd(fd_obj, nharm = 50)
-  nharm_opt <- max(
-    which(cumsum(fpca_res_init$varprop) >= total_variance)[1],
-    min_nharm
-  )
+  nharm_init <- max(1, min(50, ncol(data_mat), n_weeks - 2))
+  fpca_res_init <- fda::pca.fd(fd_obj, nharm = nharm_init)
+  nharm_needed <- which(cumsum(fpca_res_init$varprop) >= total_variance)[1]
+  if (is.na(nharm_needed)) {
+    nharm_needed <- nharm_init
+  }
+  nharm_opt <- min(max(nharm_needed, min_nharm), nharm_init)
   
   fpca_res <- fda::pca.fd(fd_obj, nharm = nharm_opt)
   
@@ -195,6 +199,312 @@ get_pc_scores_seasonwise <- function(df_ts,
   rownames(pc_scores) <- colnames(data_mat)
   
   return(pc_scores)
+}
+
+make_seasonal_flu_features <- function(df_ts,
+                                       group_var,
+                                       value_var = "value",
+                                       den_var = NULL,
+                                       smooth_width = 3,
+                                       onset_fraction = 0.2) {
+  library(dplyr)
+  library(tidyr)
+  library(tibble)
+  library(zoo)
+  
+  if (!is.data.frame(df_ts)) {
+    stop("df_ts must be a data.frame or tibble.")
+  }
+  if (!group_var %in% names(df_ts)) {
+    stop("group_var does not exist in df_ts: ", group_var)
+  }
+  if (!value_var %in% names(df_ts)) {
+    stop("value_var does not exist in df_ts: ", value_var)
+  }
+  
+  has_den <- !is.null(den_var)
+  if (has_den && !den_var %in% names(df_ts)) {
+    stop("den_var does not exist in df_ts: ", den_var)
+  }
+  
+  df_base <- df_ts %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(
+      Date = as.Date(Date),
+      region_id = as.character(.data[[group_var]]),
+      value_feature = as.numeric(.data[[value_var]]),
+      den_feature = if (has_den) as.numeric(.data[[den_var]]) else NA_real_
+    ) %>%
+    dplyr::select(season, Date, region_id, value_feature, den_feature) %>%
+    dplyr::filter(!is.na(region_id), !is.na(value_feature))
+  
+  if (nrow(df_base) == 0) {
+    stop("No valid rows available for seasonal feature extraction.")
+  }
+  
+  df_smooth <- df_base %>%
+    dplyr::group_by(season, region_id) %>%
+    dplyr::arrange(Date, .by_group = TRUE) %>%
+    dplyr::mutate(
+      season_week = dplyr::row_number(),
+      value_smooth = zoo::rollapply(
+        value_feature,
+        width = smooth_width,
+        FUN = mean,
+        align = "center",
+        fill = NA,
+        partial = TRUE
+      )
+    ) %>%
+    dplyr::ungroup()
+  
+  features_by_season <- df_smooth %>%
+    dplyr::group_by(season, region_id) %>%
+    dplyr::summarise(
+      n_weeks = dplyr::n(),
+      mean_inc = mean(value_smooth, na.rm = TRUE),
+      peak_inc = max(value_smooth, na.rm = TRUE),
+      auc_inc = sum(value_smooth, na.rm = TRUE),
+      peak_week = season_week[which.max(value_smooth)][1],
+      onset_week = {
+        threshold <- max(value_smooth, na.rm = TRUE) * onset_fraction
+        weeks <- season_week[value_smooth >= threshold]
+        if (length(weeks) == 0) NA_real_ else min(weeks, na.rm = TRUE)
+      },
+      duration_above_threshold = {
+        threshold <- max(value_smooth, na.rm = TRUE) * onset_fraction
+        sum(value_smooth >= threshold, na.rm = TRUE)
+      },
+      growth_slope = {
+        peak_idx <- which.max(value_smooth)[1]
+        if (is.na(peak_idx) || peak_idx <= 1) {
+          NA_real_
+        } else {
+          (value_smooth[peak_idx] - value_smooth[1]) /
+            max(season_week[peak_idx] - season_week[1], 1)
+        }
+      },
+      decline_slope = {
+        peak_idx <- which.max(value_smooth)[1]
+        last_idx <- dplyr::n()
+        if (is.na(peak_idx) || peak_idx >= last_idx) {
+          NA_real_
+        } else {
+          (value_smooth[last_idx] - value_smooth[peak_idx]) /
+            max(season_week[last_idx] - season_week[peak_idx], 1)
+        }
+      },
+      mean_denominator = if (has_den) mean(den_feature, na.rm = TRUE) else NA_real_,
+      .groups = "drop"
+    ) %>%
+    dplyr::mutate(
+      onset_week = dplyr::if_else(is.na(onset_week), n_weeks, onset_week),
+      growth_slope = tidyr::replace_na(growth_slope, 0),
+      decline_slope = tidyr::replace_na(decline_slope, 0)
+    )
+  
+  feature_cols <- c(
+    "mean_inc",
+    "peak_inc",
+    "auc_inc",
+    "peak_week",
+    "onset_week",
+    "duration_above_threshold",
+    "growth_slope",
+    "decline_slope"
+  )
+  
+  if (has_den) {
+    feature_cols <- c(feature_cols, "mean_denominator")
+  }
+  
+  feature_summary <- features_by_season %>%
+    dplyr::select(region_id, dplyr::all_of(feature_cols)) %>%
+    tidyr::pivot_longer(
+      cols = dplyr::all_of(feature_cols),
+      names_to = "feature",
+      values_to = "value"
+    ) %>%
+    dplyr::group_by(region_id, feature) %>%
+    dplyr::summarise(
+      feature_mean = mean(value, na.rm = TRUE),
+      feature_sd = stats::sd(value, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    tidyr::pivot_wider(
+      names_from = feature,
+      values_from = c(feature_mean, feature_sd),
+      values_fill = 0
+    ) %>%
+    tibble::column_to_rownames("region_id")
+  
+  feature_matrix <- as.matrix(feature_summary)
+  feature_matrix[!is.finite(feature_matrix)] <- 0
+  
+  return(feature_matrix)
+}
+
+
+get_pc_scores_seasonwise_named <- function(df_ts,
+                                           group_var,
+                                           value_var = "value",
+                                           total_variance = 0.9,
+                                           min_nharm = 10,
+                                           plotfit = FALSE) {
+  library(dplyr)
+  library(tidyr)
+  library(tibble)
+  library(zoo)
+  library(fda)
+  
+  if (!is.data.frame(df_ts)) {
+    stop("df_ts must be a data.frame or tibble.")
+  }
+  if (!group_var %in% names(df_ts)) {
+    stop("group_var does not exist in df_ts: ", group_var)
+  }
+  if (!value_var %in% names(df_ts)) {
+    stop("value_var does not exist in df_ts: ", value_var)
+  }
+  
+  df_ts_smooth <- df_ts %>%
+    dplyr::ungroup() %>%
+    dplyr::mutate(Date = as.Date(Date)) %>%
+    dplyr::group_by(season, .data[[group_var]]) %>%
+    dplyr::arrange(Date, .by_group = TRUE) %>%
+    dplyr::mutate(
+      season_week = dplyr::row_number(),
+      value_for_fpca = zoo::rollapply(
+        as.numeric(.data[[value_var]]),
+        width = 3,
+        FUN = mean,
+        align = "center",
+        fill = NA,
+        partial = TRUE
+      )
+    ) %>%
+    dplyr::ungroup()
+  
+  df_wide <- df_ts_smooth %>%
+    dplyr::arrange(season, season_week, .data[[group_var]]) %>%
+    dplyr::mutate(
+      time_id = paste0(season, "_", sprintf("%02d", season_week)),
+      region_id = as.character(.data[[group_var]])
+    ) %>%
+    dplyr::select(time_id, region_id, value_for_fpca) %>%
+    tidyr::pivot_wider(names_from = region_id, values_from = value_for_fpca) %>%
+    tibble::column_to_rownames("time_id")
+  
+  if (anyNA(df_wide)) {
+    stop("Data contains NA values. NA values are not allowed.")
+  }
+  
+  data_mat <- df_wide %>%
+    dplyr::mutate(
+      dplyr::across(
+        dplyr::everything(),
+        ~ as.numeric(as.character(.))
+      )
+    ) %>%
+    base::as.matrix()
+  
+  n_weeks <- nrow(data_mat)
+  
+  basis_refined <- fda::create.bspline.basis(
+    rangeval = c(1, n_weeks),
+    nbasis = n_weeks - 2,
+    norder = 4
+  )
+  
+  fd_fdPar <- fda::fdPar(
+    basis_refined,
+    Lfdobj = 2,
+    lambda = 1e-10
+  )
+  
+  fd_obj <- fda::smooth.basis(
+    argvals = 1:n_weeks,
+    y = data_mat,
+    fdParobj = fd_fdPar
+  )$fd
+  
+  if (plotfit) {
+    fda::plotfit.fd(
+      y = data_mat,
+      argvals = 1:n_weeks,
+      fdobj = fd_obj,
+      index = 1,
+      main = "Check: Region 1 Fitting"
+    )
+  }
+  
+  nharm_init <- max(1, min(50, ncol(data_mat), n_weeks - 2))
+  fpca_res_init <- fda::pca.fd(fd_obj, nharm = nharm_init)
+  nharm_needed <- which(cumsum(fpca_res_init$varprop) >= total_variance)[1]
+  if (is.na(nharm_needed)) {
+    nharm_needed <- nharm_init
+  }
+  nharm_opt <- min(max(nharm_needed, min_nharm), nharm_init)
+  
+  fpca_res <- fda::pca.fd(fd_obj, nharm = nharm_opt)
+  pc_scores <- fpca_res$scores
+  rownames(pc_scores) <- colnames(data_mat)
+  
+  return(pc_scores)
+}
+
+
+get_augmented_clustering_features <- function(df_ts,
+                                              group_var,
+                                              value_var = "value",
+                                              den_var = NULL,
+                                              total_variance = 0.95,
+                                              min_nharm = 10,
+                                              fpca_weight = 1,
+                                              seasonal_weight = 1,
+                                              plotfit = FALSE) {
+  library(dplyr)
+  
+  pc_scores <- get_pc_scores_seasonwise_named(
+    df_ts = df_ts,
+    group_var = group_var,
+    value_var = value_var,
+    total_variance = total_variance,
+    min_nharm = min_nharm,
+    plotfit = plotfit
+  )
+  
+  seasonal_features <- make_seasonal_flu_features(
+    df_ts = df_ts,
+    group_var = group_var,
+    value_var = value_var,
+    den_var = den_var
+  )
+  
+  common_ids <- intersect(rownames(pc_scores), rownames(seasonal_features))
+  
+  if (length(common_ids) == 0) {
+    stop("No matching region IDs between FPCA scores and seasonal features.")
+  }
+  
+  pc_scaled <- scale(pc_scores[common_ids, , drop = FALSE])
+  seasonal_scaled <- scale(seasonal_features[common_ids, , drop = FALSE])
+  
+  pc_scaled[!is.finite(pc_scaled)] <- 0
+  seasonal_scaled[!is.finite(seasonal_scaled)] <- 0
+  
+  feature_matrix <- cbind(
+    fpca_weight * pc_scaled,
+    seasonal_weight * seasonal_scaled
+  )
+  
+  colnames(feature_matrix) <- make.unique(c(
+    paste0("fpca_", seq_len(ncol(pc_scaled))),
+    paste0("seasonal_", colnames(seasonal_scaled))
+  ))
+  rownames(feature_matrix) <- common_ids
+  
+  return(feature_matrix)
 }
 
 
@@ -1549,4 +1859,3 @@ plot_cluster_silhouette_map <- function(df_sf_out,
     hostage_table = hostage_summary_table
   ))
 }
-

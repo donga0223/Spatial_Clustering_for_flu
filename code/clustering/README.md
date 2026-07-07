@@ -77,10 +77,25 @@ More detailed notes are stored in:
 
 ```text
 Unit levels: county, HSA
-Primary method: REDCAP
+Primary method: ClustGeo for new comparison runs
 Training design: leave-one-season-out
 Training window: October–March
-Feature extraction: season-wise smoothed FPCA
-County K values: 5–45, odd numbers only
-HSA K values: 2–22
+Feature extraction: augmented season-wise FPCA plus seasonal flu features
+County K values: 5–65 odd numbers by default, or set COUNTY_K_LIST
+HSA K values: 2–22 by default, or set HSA_K_LIST
 ```
+
+Example ClustGeo candidate run:
+
+```bash
+METHOD=clustergeo \
+OUTPUT_METHOD=clustergeoaug \
+CLUSTGEO_ALPHA=0.2 \
+FEATURE_SET=augmented \
+COUNTY_K_LIST=7,9,15,21,23,31,45,61 \
+Rscript code/clustering/cluster_data_by_season.R
+```
+
+Set `FEATURE_SET=fpca` and a different `OUTPUT_METHOD`, such as
+`clustergeofpca`, to reproduce the FPCA-only feature matrix without overwriting
+augmented ClustGeo outputs.

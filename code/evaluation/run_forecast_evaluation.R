@@ -1,5 +1,39 @@
 source("code/evaluation/forecast_evaluation_functions.R")
 
+get_env_value <- function(name, default) {
+  value <- Sys.getenv(name, unset = NA_character_)
+  if (is.na(value) || value == "") {
+    default
+  } else {
+    value
+  }
+}
+
+parse_csv_env <- function(name, default) {
+  value <- Sys.getenv(name, unset = NA_character_)
+  if (is.na(value) || value == "") {
+    return(default)
+  }
+  
+  trimws(unlist(strsplit(value, ",")))
+}
+
+parse_k_list <- function(name, default) {
+  value <- Sys.getenv(name, unset = NA_character_)
+  if (is.na(value) || value == "") {
+    return(default)
+  }
+  
+  out <- as.integer(trimws(unlist(strsplit(value, ","))))
+  out <- out[!is.na(out)]
+  
+  if (length(out) == 0) {
+    stop(name, " must contain at least one integer K value.")
+  }
+  
+  sort(unique(out))
+}
+
 
 tx_dshs <- read.csv("data/tx_dshs_region.csv")
 tx_hsa <- read.csv("data/tx_hsa.csv")
@@ -67,8 +101,9 @@ date_list_2526 <- seq.Date(
 
 
 #methods <- c("county_clustergeo", "county_skater", "county_redcap")
-methods <- c("county_redcap")
-seasons <- c("2023-24", "2024-25", "2025-26")
+methods <- parse_csv_env("EVAL_METHODS", c("county_clustergeo"))
+seasons <- parse_csv_env("EVAL_SEASONS", c("2023-24", "2024-25", "2025-26"))
+k_values <- parse_k_list("COUNTY_K_LIST", seq(5, 65, 2))
 #seasons <- c("2024-25", "2025-26")
 
 
@@ -91,7 +126,7 @@ for (season in seasons) {
     
     dir.create(outdir, showWarnings = FALSE, recursive = TRUE)
     
-    for (k in seq(5, 65, 2)) {
+    for (k in k_values) {
       
       outfile_k <- file.path(outdir, paste0("res_k", k, ".RData"))
       
@@ -125,28 +160,37 @@ for (season in seasons) {
 
 
 
-outdir <- file.path(
-  "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
-  paste0("summary_parts_", method_name, "_", season)
-)
-
-files <- list.files(outdir, pattern = "^res_k\\d+\\.RData$", full.names = TRUE)
-
-res_list <- list()
-
-for (f in files) {
-  load(f)  # loads res_k
-  
-  k_name <- stringr::str_extract(basename(f), "k\\d+")
-  res_list[[k_name]] <- res_k
+for (season in seasons) {
+  for (method_name in methods) {
+    outdir <- file.path(
+      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
+      paste0("summary_parts_", method_name, "_", season)
+    )
+    
+    files <- list.files(outdir, pattern = "^res_k\\d+\\.RData$", full.names = TRUE)
+    
+    if (length(files) == 0) {
+      warning("No summary part files found in: ", outdir)
+      next
+    }
+    
+    res_list <- list()
+    
+    for (f in files) {
+      load(f)  # loads res_k
+      
+      k_name <- stringr::str_extract(basename(f), "k\\d+")
+      res_list[[k_name]] <- res_k
+    }
+    
+    outfile <- file.path(
+      "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
+      paste0("summary_", method_name, "_", season, ".RData")
+    )
+    
+    save(res_list, file = outfile)
+  }
 }
-
-outfile <- file.path(
-  "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
-  paste0("summary_", method_name, "_", season, ".RData")
-)
-
-save(res_list, file = outfile)
 
 if(2==3){
   for (season in seasons) {
@@ -199,4 +243,3 @@ if(2==3){
   
   
 }
-
