@@ -12,7 +12,7 @@ Current clustering methods implemented:
 - Skater
 
 Current primary method:
-- REDCAP
+- ClustGeo for new comparison runs
 
 ---
 
@@ -39,6 +39,13 @@ Main functions include:
 - `get_pc_scores_seasonwise()`
   - Modified FPCA feature extraction.
   - Applies smoothing within each season separately to avoid season boundary artifacts.
+
+- `get_augmented_clustering_features()`
+  - Combines season-wise FPCA scores with interpretable seasonal features.
+  - Adds mean incidence, peak height, seasonal burden, peak timing, onset timing,
+    duration above threshold, growth/decline slopes, and denominator volume when
+    available.
+  - Standardizes FPCA and seasonal features before combining them.
 
 - `run_redcap_cluster()`
   - Performs REDCAP clustering using FPCA features and spatial adjacency.
@@ -235,15 +242,83 @@ Saved outputs include:
 ## Notes
 
 ### County-level clustering
-- K values tested: 5–45 (odd numbers only)
+- K values tested by default: 5–65 (odd numbers only)
+- Optional candidate set: set `COUNTY_K_LIST`, for example `COUNTY_K_LIST=7,9,15,21,23,31,45,61`
 
 ### HSA-level clustering
-- K values tested: 2–22
+- K values tested by default: 2–22
+- Optional candidate set: set `HSA_K_LIST`, for example `HSA_K_LIST=4,6,8,10,12,16,20`
 
 ### Current default settings
-- Method: REDCAP
+- Method: ClustGeo
+- ClustGeo alpha: 0.2
+- Feature set: augmented FPCA plus seasonal flu features
 - FPCA variance threshold: 95%
 - Training period: October–March
+
+### Running ClustGeo
+
+`cluster_data_by_season.R` reads method settings from environment variables.
+
+```bash
+METHOD=clustergeo CLUSTGEO_ALPHA=0.2 FEATURE_SET=augmented Rscript code/clustering/cluster_data_by_season.R
+```
+
+To inspect several plausible `K` values without running the full grid:
+
+```bash
+METHOD=clustergeo \
+OUTPUT_METHOD=clustergeoaug \
+CLUSTGEO_ALPHA=0.2 \
+FEATURE_SET=augmented \
+COUNTY_K_LIST=7,9,15,21,23,31,45,61 \
+HSA_K_LIST=4,6,8,10,12,16,20 \
+Rscript code/clustering/cluster_data_by_season.R
+```
+
+To run the previous FPCA-only feature set for comparison:
+
+```bash
+METHOD=clustergeo OUTPUT_METHOD=clustergeofpca FEATURE_SET=fpca Rscript code/clustering/cluster_data_by_season.R
+```
+
+Use `OUTPUT_METHOD` to keep different feature sets from overwriting each other.
+It should contain only letters and numbers because downstream filename parsing
+expects that pattern.
+
+For sensitivity checks, use `FPCA_WEIGHT` and `SEASONAL_FEATURE_WEIGHT`.
+For example, `FPCA_WEIGHT=1 SEASONAL_FEATURE_WEIGHT=0.5` keeps FPCA dominant
+while still adding timing/intensity information.
+
+At this stage, the goal is to compare a candidate set of granularities rather
+than force a single optimal `K`.
+
+### Candidate K ranking
+
+After forecast evaluation and spatial variation results are available, use
+`code/evaluation/rank_candidate_k.R` to generate a ranked table. The report keeps
+multiple useful flags:
+
+- `composite_rank`: combined WIS/spatial-variation rank
+- `near_best_wis`: within a tolerance of the best WIS
+- `pareto_candidate`: not dominated by another `K` on both WIS and spatial variation
+- `shortlist_candidate`: recommended values to inspect further
+
+Example:
+
+```r
+source("code/evaluation/rank_candidate_k.R")
+
+ranked_k <- write_candidate_k_report(
+  results_dir = "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results",
+  spatial_variation_path = "/work2/09967/dongahkim0223/frontera/Spatial_clustering/results/spatial_variation_results.rds",
+  method_name = "county_clustergeoaug",
+  wis_weight = 0.7,
+  spatial_weight = 0.3,
+  wis_tolerance = 0.10,
+  top_n = 10
+)
+```
 
 ---
 
