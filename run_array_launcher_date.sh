@@ -43,6 +43,7 @@ echo "K_LIST=$K_LIST"
 echo "K_VALUES=$K_VALUES"
 echo "DATE_LIST=$DATE_LIST"
 echo "LAUNCHER_JOB_FILE=$LAUNCHER_JOB_FILE"
+echo "Number of commands: $(wc -l < "$LAUNCHER_JOB_FILE")"
 
 cat "$LAUNCHER_JOB_FILE"
 

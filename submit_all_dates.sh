@@ -1,7 +1,8 @@
 #!/bin/bash
+set -euo pipefail
 
-METHOD="clustergeoaug"
-K_LIST="7 9 15 21 23 31 45 61"
+METHOD="${METHOD:-clustergeoaug}"
+K_LIST="${K_LIST:-7 9 15 21 23 31 45 61}"
 
 DATES=(
 2023-10-07 2023-10-14 2023-10-21 2023-10-28
@@ -26,13 +27,16 @@ DATES=(
 2026-03-07 2026-03-14 2026-03-21 2026-03-28
 )
 
-chunk_size=21
+# run_array_launcher_date.sh creates one command for each (date, K) pair.
+# With 8 K values and --ntasks=21, CHUNK_SIZE=2 creates 16 commands, so the
+# Slurm launcher can start them in one wave. A larger chunk creates multiple
+# waves and can look serial or time out after early K values.
+chunk_size="${CHUNK_SIZE:-2}"
 
 for ((i=0; i<${#DATES[@]}; i+=chunk_size)); do
   DATE_CHUNK="${DATES[@]:i:chunk_size}"
 
-  echo "Submitting dates:"
-  echo "$DATE_CHUNK"
+  echo "Submitting METHOD=$METHOD K_LIST=$K_LIST dates: $DATE_CHUNK"
 
   sbatch \
     --export=ALL,METHOD="$METHOD",K_LIST="$K_LIST",DATE_LIST="$DATE_CHUNK" \
