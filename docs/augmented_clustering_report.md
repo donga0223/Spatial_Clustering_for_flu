@@ -185,14 +185,13 @@ The final augmented feature vector for county `i` is:
 
 Each feature set is standardized to have mean 0 and standard deviation 1.
 
-$$
-X_i
-=
+```math
+X_i =
 \left[
 w_f\,\mathbf{z}^{\mathrm{FPCA}}_i,\;
 w_s\,\mathbf{z}^{\mathrm{season}}_i
-\right],
-$$
+\right]
+```
 
 where
 
