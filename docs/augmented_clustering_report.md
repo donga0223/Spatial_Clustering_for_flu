@@ -91,12 +91,11 @@ useful, but FPCA alone may miss interpretable epidemic features such as onset
 timing, peak timing, and rise/decline behavior. The augmented runs keep FPCA and
 add seasonal flu features.
 
-For county `i`, week `t`, and season `s`, define the observed weekly flu ED
-visit proportion as:
+For county `i`, week `t`, and season `s`, let `F` be flu ED visits and `A` be
+all ED visits. The observed weekly flu ED visit proportion is:
 
 $$
-y_{i,s,t} =
-\frac{\text{flu ED visits}_{i,s,t}}{\text{all ED visits}_{i,s,t}}
+y_{i,s,t} = \frac{F_{i,s,t}}{A_{i,s,t}}
 $$
 
 A three-week centered rolling mean is applied within each season:
@@ -152,31 +151,29 @@ curve:
 For example, peak incidence is:
 
 $$
-\text{peak}_{i,s} = \max_t \tilde{y}_{i,s,t}
+p_{i,s} = \max_t \tilde{y}_{i,s,t}
 $$
 
 Onset week is:
 
 $$
-\text{onset}_{i,s}
-= \text{min} \{ t : \tilde{y}_{i,s,t} \ge 0.2 \times \text{peak}_{i,s} \}
+o_{i,s} = \min \{ t : \tilde{y}_{i,s,t} \ge 0.2 p_{i,s} \}
 $$
 
 Growth slope is:
 
 $$
-\text{growth}_{i,s}
-= \frac{\text{peak}_{i,s} - \tilde{y}_{i,s,1}}
-{t_{\text{peak},i,s} - 1}
+g_{i,s} = \frac{p_{i,s} - \tilde{y}_{i,s,1}}{t^*_{i,s} - 1}
 $$
 
 Decline slope is:
 
 $$
-\text{decline}_{i,s}
-= \frac{\tilde{y}_{i,s,T} - \text{peak}_{i,s}}
-{T - t_{\text{peak},i,s}}
+d_{i,s} = \frac{\tilde{y}_{i,s,T} - p_{i,s}}{T - t^*_{i,s}}
 $$
+
+Here, `p` is peak incidence, `o` is onset week, `g` is growth slope, `d` is
+decline slope, and `t*` is the peak week.
 
 The seasonal features are then averaged across training seasons. Season-to-season
 standard deviations are also included, so counties with unstable seasonal
@@ -189,10 +186,10 @@ The final augmented feature vector for county `i` is:
 $$
 X_i
 =
-\left[
+[\, 
 z(\mathbf{FPCA}_i),\;
 z(\mathbf{Season}_i)
-\right]
+\,]
 $$
 
 Here, 
@@ -203,7 +200,7 @@ $$
 Both parts currently use weight `1`:
 
 $$
-X_i = \left[1 \cdot \text{FPCA}_i,\; 1 \cdot \text{SeasonalFeatures}_i \right]
+X_i = [\,1 \cdot \mathbf{FPCA}_i,\; 1 \cdot \mathbf{Season}_i\,]
 $$
 
 The previous FPCA-only analysis can still be reproduced with:
@@ -231,7 +228,7 @@ D_0(i,j) = d(X_i, X_j)
 $$
 
 $$
-D_1(i,j) = d_{\text{geo}}(i,j)
+D_1(i,j) = d_G(i,j)
 $$
 
 where $D_0(i,j)$ is the distance between augmented flu feature vectors and
@@ -270,15 +267,19 @@ redcapaug
 The current REDCAP-style implementation uses the same augmented feature matrix,
 but spatial structure is treated as a hard adjacency constraint.
 
-Let:
+Let `A(i,j)` be the adjacency indicator:
 
 $$
-A(i,j) =
-\begin{cases}
-1, & \text{if counties } i \text{ and } j \text{ are adjacent} \\
-0, & \text{otherwise}
-\end{cases}
+A(i,j) = 1
 $$
+
+for adjacent counties, and
+
+$$
+A(i,j) = 0
+$$
+
+otherwise.
 
 The feature distance is:
 
@@ -289,12 +290,16 @@ $$
 A large penalty is assigned to non-adjacent county pairs:
 
 $$
-D_{\text{REDCAP}}(i,j) =
-\begin{cases}
-D_0(i,j), & A(i,j) = 1 \\
-M, & A(i,j) = 0
-\end{cases}
+D_R(i,j) = D_0(i,j)
 $$
+
+when `A(i,j) = 1`, and
+
+$$
+D_R(i,j) = M
+$$
+
+when `A(i,j) = 0`.
 
 where $M$ is a very large finite penalty:
 
@@ -318,39 +323,29 @@ Interpretation:
 Spatial variation evaluates how much county-level heterogeneity is preserved by
 a regional aggregation.
 
-For county `i`, region `g(i)`, week `t`, and weight `w_i`:
+For county `i`, region `g(i)`, week `t`, and weight `w_i`, define:
 
-$$
-y_{i,t} = \text{county flu ED visit proportion}
-$$
-
-$$
-y_{g(i),t} = \text{weighted mean flu proportion in county } i\text{'s region}
-$$
-
-$$
-y_{\text{state},t} = \text{weighted statewide mean flu proportion}
-$$
+- $y_{i,t}$: county flu ED visit proportion
+- $y_{g(i),t}$: weighted regional mean for county `i`
+- $y_{S,t}$: weighted statewide mean
 
 The population-weighted within-region variation is:
 
 $$
-W_{\text{region},t}
-= \sum_i w_i \left(y_{i,t} - y_{g(i),t}\right)^2
+W_{R,t} = \sum_i w_i (y_{i,t} - y_{g(i),t})^2
 $$
 
 The population-weighted statewide variation is:
 
 $$
-W_{\text{state},t}
-= \sum_i w_i \left(y_{i,t} - y_{\text{state},t}\right)^2
+W_{S,t} = \sum_i w_i (y_{i,t} - y_{S,t})^2
 $$
 
 The weekly retained spatial variation is:
 
 $$
 \lambda_{K,t}
-= 1 - \frac{W_{\text{region},t}}{W_{\text{state},t}}
+= 1 - \frac{W_{R,t}}{W_{S,t}}
 $$
 
 The reported value is the average across flu-season weeks and test seasons:
