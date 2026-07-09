@@ -159,7 +159,7 @@ Onset week is:
 
 $$
 \text{onset}_{i,s}
-= \min \{ t : \tilde{y}_{i,s,t} \ge 0.2 \times \text{peak}_{i,s} \}
+= \text{min} \{ t : \tilde{y}_{i,s,t} \ge 0.2 \times \text{peak}_{i,s} \}
 $$
 
 Growth slope is:
@@ -187,11 +187,17 @@ patterns can be separated from counties with stable patterns.
 The final augmented feature vector for county `i` is:
 
 $$
-X_i =
+X_i
+=
 \left[
-\operatorname{standardize}(\text{FPCA scores}_i),
-\operatorname{standardize}(\text{seasonal feature summaries}_i)
+z(\mathbf{FPCA}_i),\;
+z(\mathbf{Season}_i)
 \right]
+$$
+
+Here, 
+$$
+z(x)=\frac{x-\mu}{\sigma}
 $$
 
 Both parts currently use weight `1`:
