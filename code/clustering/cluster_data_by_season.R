@@ -56,6 +56,7 @@ align_matrix_to_sf <- function(data_matrix, df_sf, id_col) {
 method_name <- get_env_value("METHOD", "clustergeo")
 output_method_name <- get_env_value("OUTPUT_METHOD", method_name)
 run_levels <- parse_csv_env("RUN_LEVELS", c("county", "hsa"))
+cluster_data_dir <- get_env_value("CLUSTER_DATA_DIR", "data/cluster_data_season")
 cluster_figure_dir <- get_env_value("CLUSTER_FIGURE_DIR", "figures/cluster_combine")
 clustgeo_alpha <- as.numeric(get_env_value("CLUSTGEO_ALPHA", "0.2"))
 feature_set <- get_env_value("FEATURE_SET", "augmented")
@@ -107,7 +108,7 @@ if (feature_set == "augmented") {
 message("County K values: ", paste(county_k_values, collapse = ", "))
 message("HSA K values: ", paste(hsa_k_values, collapse = ", "))
 
-dir.create("data/cluster_data_season", showWarnings = FALSE, recursive = TRUE)
+dir.create(cluster_data_dir, showWarnings = FALSE, recursive = TRUE)
 dir.create(cluster_figure_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Load raw datasets
@@ -298,7 +299,10 @@ if ("county" %in% run_levels) for (sea in unique_seasons) {
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
     write.csv(
       df_final,
-      paste0("data/cluster_data_season/df_county_", output_method_name, "_exclude_", sea_safe, "_", i, ".csv"),
+      file.path(
+        cluster_data_dir,
+        paste0("df_county_", output_method_name, "_exclude_", sea_safe, "_", i, ".csv")
+      ),
       row.names = FALSE
     )
     
@@ -500,7 +504,10 @@ if ("hsa" %in% run_levels) for (sea in unique_seasons) {
     # 'exclude_2021-22' implies this cluster model never saw the 2021/22 data during boundary generation.
     write.csv(
       df_final,
-      paste0("data/cluster_data_season/df_hsa_", output_method_name, "_exclude_", sea_safe, "_", i, ".csv"),
+      file.path(
+        cluster_data_dir,
+        paste0("df_hsa_", output_method_name, "_exclude_", sea_safe, "_", i, ".csv")
+      ),
       row.names = FALSE
     )
     

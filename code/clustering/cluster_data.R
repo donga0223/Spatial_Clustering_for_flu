@@ -1,7 +1,7 @@
 ## This script creates datasets for several methods with different numbers of clusters.
 ## Before running this script, you should first run `fPCA_contiguous.Rmd` or `fPCA_contiguous_county.Rmd`.
 
-method_name <- "redcap"
+method_name <- "clustergeoaug"
 
 for(i in 2:25){
   
@@ -83,10 +83,7 @@ for(i in 2:25){
     dplyr::left_join(
       cluster_output$cluster_mapping,
       by = "hsa_nci_id"
-    ) %>%
-    dplyr::mutate(
-      target_end_date = Date + 6
-    )
+    ) 
   
   write.csv(
     df_final,
@@ -112,18 +109,74 @@ for(i in 2:25){
 }
 
 
+############################################################################################
+## start from here
+############################################################################################
+df_long <- read.csv("data/county_edvisits.csv")
+df_long <- df_long %>%
+  filter(season != '2021/22')
+sf_county <- readRDS("data/county_formap.RDS")
+sf_hsa <- readRDS("data/hsa_formap.RDS")
 
-
-
-
+df_long2 <- df_long %>%
+  mutate(Date_parsed = as.Date(Date)) %>%
+  filter(month(Date_parsed) %in% c(10, 11, 12, 1, 2, 3))
 
 sf_county2 <- sf_county %>%
   dplyr::select(NAME, geometry) %>%
   rename(county = NAME)
 
+make_county_scoring_matrix <- function(method_name) {
+  if (method_name == "clustergeoaug") {
+    get_augmented_clustering_features(
+      df_ts = df_long2,
+      group_var = "county",
+      value_var = "value",
+      den_var = "value_all",
+      total_variance = 0.95,
+      min_nharm = 10,
+      fpca_weight = 1,
+      seasonal_weight = 1,
+      plotfit = FALSE
+    )
+  } else {
+    get_pc_scores_seasonwise(
+      df_ts = df_long2,
+      group_var = county,
+      total_variance = 0.95,
+      min_nharm = 10,
+      plotfit = FALSE
+    )
+  }
+}
+
+align_county_matrix_to_sf <- function(data_matrix, df_sf) {
+  county_ids <- as.character(df_sf$county)
+  matrix_ids <- as.character(rownames(data_matrix))
+  missing_ids <- setdiff(county_ids, matrix_ids)
+  
+  if (length(missing_ids) > 0) {
+    stop(
+      "Feature matrix is missing counties from the county map: ",
+      paste(missing_ids, collapse = ", ")
+    )
+  }
+  
+  data_matrix[county_ids, , drop = FALSE]
+}
+
+# Use whole data, restricted to flu-season months only.
+# Set to "clustergeo" for FPCA-only ClustGeo, or "clustergeoaug" for
+# augmented FPCA + seasonal-feature ClustGeo.
+method_name <- "clustergeoaug"
+k_values <- c(8, 15, 22, 30, 40, 50, 61, 65)
+
+scoring_matrix <- make_county_scoring_matrix(method_name)
+scoring_matrix <- align_county_matrix_to_sf(scoring_matrix, sf_county2)
+
 mst_output <- make_spatial_mst(
-  df_sf = sf_county, 
-  data_matrix = scoring_matrix, 
+  df_sf = sf_county2,
+  data_matrix = scoring_matrix,
   queen = FALSE
 )
 
@@ -134,11 +187,10 @@ ClustGeo::choicealpha(geo_distances$D0, geo_distances$D1, range.alpha = seq(0, 1
 
 redcap_weights <- make_redcap_weights(df_sf = sf_county2, queen = FALSE)
 
+dir.create("data/cluster_data", showWarnings = FALSE, recursive = TRUE)
+dir.create("figures/cluster_combine", showWarnings = FALSE, recursive = TRUE)
 
-
-method_name = "redcap"
-
-for(i in 5:25){
+for(i in k_values){
   
   print(paste("Running", method_name, "k =", i))
   
@@ -157,7 +209,7 @@ for(i in 5:25){
       num_var = "value_flu",
       den_var = "value_all"
     )
-  }else if(method_name == "clustergeo"){
+  }else if(method_name %in% c("clustergeo", "clustergeoaug")){
     
     cluster_output <- run_clustgeo_cluster(
       df_sf         = sf_county2,
@@ -214,7 +266,7 @@ for(i in 5:25){
     dplyr::left_join(
       cluster_output$cluster_mapping,
       by = "county"
-    ) 
+    )
   
   write.csv(
     df_final,
