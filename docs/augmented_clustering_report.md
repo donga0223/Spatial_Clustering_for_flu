@@ -94,15 +94,17 @@ add seasonal flu features.
 For county `i`, week `t`, and season `s`, define the observed weekly flu ED
 visit proportion as:
 
-```text
-y_i,s,t = flu ED visits_i,s,t / all ED visits_i,s,t
-```
+$$
+y_{i,s,t} =
+\frac{\text{flu ED visits}_{i,s,t}}{\text{all ED visits}_{i,s,t}}
+$$
 
 A three-week centered rolling mean is applied within each season:
 
-```text
-tilde_y_i,s,t = mean(y_i,s,t-1, y_i,s,t, y_i,s,t+1)
-```
+$$
+\tilde{y}_{i,s,t}
+= \frac{y_{i,s,t-1} + y_{i,s,t} + y_{i,s,t+1}}{3}
+$$
 
 Smoothing is done within each season only. This avoids artificial smoothing from
 the end of one season into the beginning of the next.
@@ -111,21 +113,22 @@ the end of one season into the beginning of the next.
 
 Each county's smoothed flu curve is represented as a functional observation:
 
-```text
-tilde_y_i(t)
-```
+$$
+\tilde{y}_i(t)
+$$
 
 FPCA approximates each county curve as:
 
-```text
-tilde_y_i(t) = mu(t) + sum_m xi_i,m phi_m(t) + error_i(t)
-```
+$$
+\tilde{y}_i(t)
+= \mu(t) + \sum_{m=1}^{M} \xi_{i,m}\phi_m(t) + \varepsilon_i(t)
+$$
 
 where:
 
-- `mu(t)` is the mean flu curve
-- `phi_m(t)` is FPCA component `m`
-- `xi_i,m` is the FPCA score for county `i` on component `m`
+- $\mu(t)$ is the mean flu curve
+- $\phi_m(t)$ is FPCA component $m$
+- $\xi_{i,m}$ is the FPCA score for county $i$ on component $m$
 
 The FPCA scores form the first part of the clustering feature vector.
 
@@ -148,27 +151,32 @@ curve:
 
 For example, peak incidence is:
 
-```text
-peak_i,s = max_t tilde_y_i,s,t
-```
+$$
+\text{peak}_{i,s} = \max_t \tilde{y}_{i,s,t}
+$$
 
 Onset week is:
 
-```text
-onset_i,s = min { t : tilde_y_i,s,t >= 0.2 * peak_i,s }
-```
+$$
+\text{onset}_{i,s}
+= \min \left\{ t : \tilde{y}_{i,s,t} \ge 0.2 \times \text{peak}_{i,s} \right\}
+$$
 
 Growth slope is:
 
-```text
-growth_i,s = (peak_i,s - tilde_y_i,s,1) / (t_peak_i,s - 1)
-```
+$$
+\text{growth}_{i,s}
+= \frac{\text{peak}_{i,s} - \tilde{y}_{i,s,1}}
+{t_{\text{peak},i,s} - 1}
+$$
 
 Decline slope is:
 
-```text
-decline_i,s = (tilde_y_i,s,T - peak_i,s) / (T - t_peak_i,s)
-```
+$$
+\text{decline}_{i,s}
+= \frac{\tilde{y}_{i,s,T} - \text{peak}_{i,s}}
+{T - t_{\text{peak},i,s}}
+$$
 
 The seasonal features are then averaged across training seasons. Season-to-season
 standard deviations are also included, so counties with unstable seasonal
@@ -178,15 +186,19 @@ patterns can be separated from counties with stable patterns.
 
 The final augmented feature vector for county `i` is:
 
-```text
-X_i = [ standardized FPCA scores, standardized seasonal feature summaries ]
-```
+$$
+X_i =
+\left[
+\operatorname{standardize}(\text{FPCA scores}_i),
+\operatorname{standardize}(\text{seasonal feature summaries}_i)
+\right]
+$$
 
 Both parts currently use weight `1`:
 
-```text
-X_i = [ 1 * FPCA_i, 1 * SeasonalFeatures_i ]
-```
+$$
+X_i = \left[1 \cdot \text{FPCA}_i,\; 1 \cdot \text{SeasonalFeatures}_i \right]
+$$
 
 The previous FPCA-only analysis can still be reproduced with:
 
@@ -208,22 +220,28 @@ ClustGeo combines feature-space distance and geographic distance.
 
 Let:
 
-```text
-D0(i,j) = distance between augmented flu feature vectors X_i and X_j
-D1(i,j) = geographic distance between county centroids
-```
+$$
+D_0(i,j) = d(X_i, X_j)
+$$
+
+$$
+D_1(i,j) = d_{\text{geo}}(i,j)
+$$
+
+where $D_0(i,j)$ is the distance between augmented flu feature vectors and
+$D_1(i,j)$ is the geographic distance between county centroids.
 
 The mixed distance is:
 
-```text
-D_alpha(i,j) = (1 - alpha) D0(i,j) + alpha D1(i,j)
-```
+$$
+D_{\alpha}(i,j) = (1 - \alpha)D_0(i,j) + \alpha D_1(i,j)
+$$
 
 Current setting:
 
-```text
-alpha = 0.2
-```
+$$
+\alpha = 0.2
+$$
 
 Interpretation:
 
@@ -248,29 +266,35 @@ but spatial structure is treated as a hard adjacency constraint.
 
 Let:
 
-```text
-A(i,j) = 1 if counties i and j are adjacent
-A(i,j) = 0 otherwise
-```
+$$
+A(i,j) =
+\begin{cases}
+1, & \text{if counties } i \text{ and } j \text{ are adjacent} \\
+0, & \text{otherwise}
+\end{cases}
+$$
 
 The feature distance is:
 
-```text
-D0(i,j) = distance between augmented flu feature vectors X_i and X_j
-```
+$$
+D_0(i,j) = d(X_i, X_j)
+$$
 
 A large penalty is assigned to non-adjacent county pairs:
 
-```text
-D_redcap(i,j) = D0(i,j)        if A(i,j) = 1
-D_redcap(i,j) = M             if A(i,j) = 0
-```
+$$
+D_{\text{REDCAP}}(i,j) =
+\begin{cases}
+D_0(i,j), & A(i,j) = 1 \\
+M, & A(i,j) = 0
+\end{cases}
+$$
 
-where `M` is a very large finite penalty:
+where $M$ is a very large finite penalty:
 
-```text
-M = 10000 * max(D0)
-```
+$$
+M = 10000 \times \max_{i,j} D_0(i,j)
+$$
 
 Ward hierarchical clustering is then applied to this spatially penalized
 distance matrix, and the tree is cut at the requested `K`.
@@ -290,40 +314,49 @@ a regional aggregation.
 
 For county `i`, region `g(i)`, week `t`, and weight `w_i`:
 
-```text
-y_i,t = county flu ED visit proportion
-y_g(i),t = weighted mean flu proportion in county i's region
-y_state,t = weighted statewide mean flu proportion
-```
+$$
+y_{i,t} = \text{county flu ED visit proportion}
+$$
+
+$$
+y_{g(i),t} = \text{weighted mean flu proportion in county } i\text{'s region}
+$$
+
+$$
+y_{\text{state},t} = \text{weighted statewide mean flu proportion}
+$$
 
 The population-weighted within-region variation is:
 
-```text
-W_region,t = sum_i w_i * (y_i,t - y_g(i),t)^2
-```
+$$
+W_{\text{region},t}
+= \sum_i w_i \left(y_{i,t} - y_{g(i),t}\right)^2
+$$
 
 The population-weighted statewide variation is:
 
-```text
-W_state,t = sum_i w_i * (y_i,t - y_state,t)^2
-```
+$$
+W_{\text{state},t}
+= \sum_i w_i \left(y_{i,t} - y_{\text{state},t}\right)^2
+$$
 
 The weekly retained spatial variation is:
 
-```text
-lambda_K,t = 1 - W_region,t / W_state,t
-```
+$$
+\lambda_{K,t}
+= 1 - \frac{W_{\text{region},t}}{W_{\text{state},t}}
+$$
 
 The reported value is the average across flu-season weeks and test seasons:
 
-```text
-lambda_K = mean_t(lambda_K,t)
-```
+$$
+\lambda_K = \frac{1}{T}\sum_{t=1}^{T}\lambda_{K,t}
+$$
 
 Interpretation:
 
-- `lambda_K = 0`: same as state-level aggregation
-- `lambda_K = 1`: same as county-level resolution
+- $\lambda_K = 0$: same as state-level aggregation
+- $\lambda_K = 1$: same as county-level resolution
 - Higher values mean the aggregation preserves more county-level spatial
   heterogeneity
 
@@ -348,7 +381,7 @@ averaged across the evaluated test seasons.
 
 ### Existing Boundary Benchmarks
 
-| Boundary | K | lambda_K |
+| Boundary | $K$ | $\lambda_K$ |
 |---|---:|---:|
 | State | 1 | 0.000 |
 | DSHS | 8 | 0.462 |
@@ -358,7 +391,7 @@ averaged across the evaluated test seasons.
 
 ### Data-Driven Cluster Methods
 
-| K | ClustGeo Augmented | REDCAP Augmented | Difference |
+| $K$ | ClustGeo Augmented | REDCAP Augmented | Difference |
 |---:|---:|---:|---:|
 | 7 | 0.364 | 0.327 | 0.037 |
 | 9 | 0.390 | 0.363 | 0.027 |
@@ -370,7 +403,7 @@ averaged across the evaluated test seasons.
 | 61 | 0.744 | 0.694 | 0.049 |
 
 ClustGeo augmented retained more spatial variation than REDCAP augmented for
-every tested `K`.
+every tested $K$.
 
 ---
 
@@ -409,11 +442,11 @@ REDCAP augmented:
 
 From spatial variation alone:
 
-- ClustGeo augmented exceeds DSHS by `K = 15`.
-- ClustGeo augmented is close to RAC by `K = 23`.
-- ClustGeo augmented approaches HSA at `K = 61`.
+- ClustGeo augmented exceeds DSHS by $K = 15$.
+- ClustGeo augmented is close to RAC by $K = 23$.
+- ClustGeo augmented approaches HSA at $K = 61$.
 - REDCAP augmented improves as `K` increases, but it is lower than ClustGeo
-  augmented at every tested `K`.
+  augmented at every tested $K$.
 
 This does not determine the final clustering choice. Spatial variation measures
 how much local heterogeneity is preserved, but it does not measure forecast
@@ -436,4 +469,3 @@ python code/forecasting/run_forecast.py \
   --k_list 7,9,15,21,23,31,45,61 \
   --n_workers 8
 ```
-
