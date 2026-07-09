@@ -183,26 +183,29 @@ patterns can be separated from counties with stable patterns.
 
 The final augmented feature vector for county `i` is:
 
+Each feature set is standardized to have mean 0 and standard deviation 1.
 
 $$
 X_i
 =
-[\, 
-z(\mathbf{FPCA}_i),\;
-z(\mathbf{Season}_i)
-\,]
+\left[
+w_f\,\mathbf{z}^{\mathrm{FPCA}}_i,\;
+w_s\,\mathbf{z}^{\mathrm{season}}_i
+\right],
 $$
 
-Here, 
-$$
-z(x)=\frac{x-\mu}{\sigma}
-$$
-
-Both parts currently use weight `1`:
+where
 
 $$
-X_i = [\,1 \cdot \mathbf{FPCA}_i,\; 1 \cdot \mathbf{Season}_i\,]
+\mathbf{z}=\frac{\mathbf{x}-\boldsymbol{\mu}}{\boldsymbol{\sigma}}.
 $$
+
+In the current implementation,
+
+$$
+w_f=w_s=1.
+$$
+
 
 The previous FPCA-only analysis can still be reproduced with:
 
