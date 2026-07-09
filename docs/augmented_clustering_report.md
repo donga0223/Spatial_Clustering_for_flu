@@ -183,6 +183,7 @@ patterns can be separated from counties with stable patterns.
 
 The final augmented feature vector for county `i` is:
 
+
 $$
 X_i
 =
