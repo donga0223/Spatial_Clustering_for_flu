@@ -159,7 +159,7 @@ Onset week is:
 
 $$
 \text{onset}_{i,s}
-= \min \left\{ t : \tilde{y}_{i,s,t} \ge 0.2 \times \text{peak}_{i,s} \right\}
+= \min \Big\{ t : \tilde{y}_{i,s,t} \ge 0.2 \times \text{peak}_{i,s} \Big\}
 $$
 
 Growth slope is:
