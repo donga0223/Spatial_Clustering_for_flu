@@ -1,0 +1,15 @@
+# Generated data
+data/cluster_data/
+data/cluster_data_season/
+
+# Generated launcher files
+launcher_jobs/
+
+# Slurm logs
+logs/
+
+# Jupyter checkpoints
+.ipynb_checkpoints/data/cluster_data/
+data/cluster_data_season/
+launcher_jobs/
+logs/
