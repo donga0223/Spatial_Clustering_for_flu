@@ -1,0 +1,27 @@
+"method","period","geo_level","K","lambda_K","n_weeks"
+"clustergeo","All training data","cluster",8,0.359223735340334,105
+"clustergeo","All training data","cluster",15,0.492372351278902,105
+"clustergeo","All training data","cluster",22,0.560622222569628,105
+"clustergeo","All training data","cluster",30,0.611281001836394,105
+"clustergeo","All training data","cluster",40,0.658446889341684,105
+"clustergeo","All training data","cluster",50,0.695058625736978,105
+"clustergeo","All training data","cluster",61,0.719239333398985,105
+"clustergeo","All training data","cluster",65,0.732476362434912,105
+"clustergeo","All training data","county",254,1,105
+"clustergeo","All training data","dshs",8,0.438161842339243,105
+"clustergeo","All training data","hsa",61,0.725187064030673,105
+"clustergeo","All training data","rac",22,0.57053771061803,105
+"clustergeo","All training data","state",1,0,105
+"clustergeoaug","All training data","cluster",8,0.363948043132379,105
+"clustergeoaug","All training data","cluster",15,0.485630315687792,105
+"clustergeoaug","All training data","cluster",22,0.557255655011581,105
+"clustergeoaug","All training data","cluster",30,0.615154088420527,105
+"clustergeoaug","All training data","cluster",40,0.656560109233003,105
+"clustergeoaug","All training data","cluster",50,0.691486244022201,105
+"clustergeoaug","All training data","cluster",61,0.717770737802795,105
+"clustergeoaug","All training data","cluster",65,0.728603968273065,105
+"clustergeoaug","All training data","county",254,1,105
+"clustergeoaug","All training data","dshs",8,0.438161842339243,105
+"clustergeoaug","All training data","hsa",61,0.725187064030673,105
+"clustergeoaug","All training data","rac",22,0.57053771061803,105
+"clustergeoaug","All training data","state",1,0,105
